@@ -85,6 +85,23 @@ func (r *Repository) GetLatestNegotiationHistory(db *gorm.DB, orderPanelNo uint)
 	return &history, nil
 }
 
+func (r *Repository) GetLatestRepairHistory(db *gorm.DB, orderPanelNo uint) (*models.RepairHistory, error) {
+	var history models.RepairHistory
+
+	err := db.Where("order_panel_no = ? AND is_locked = 0", orderPanelNo).
+		Order("round_count DESC").
+		First(&history).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil // No negotiation history yet
+		}
+		return nil, err
+	}
+
+	return &history, nil
+}
+
 func (r *Repository) GetSpecificNegotiationHistoryRound(db *gorm.DB, orderPanelNo, roundNo uint) (*models.NegotiationHistory, error) {
 	var history models.NegotiationHistory
 
@@ -180,6 +197,30 @@ func (r *Repository) FindOrderById(id uint) (*models.Order, error) {
 		First(&order).Error
 
 	return &order, err
+}
+
+func (r *Repository) FindOrderPanelById(id uint) (*models.OrderPanel, error) {
+	var orderPanel models.OrderPanel
+
+	err := r.db.
+		Preload("InsurerPanelPricing").
+		Preload("WorkshopPanelPricing").
+		Preload("FinalPanelPricing").
+		Preload("InsurerMeasurement").
+		Preload("WorkshopMeasurement").
+		Preload("FinalMeasurement").
+		Preload("CreatedByUser").
+		Preload("LastModifiedByUser").
+		Preload("RepairHistory").
+		Preload("NegotiationHistory").
+		Where("order_panel_no = ?", id).
+		Find(&orderPanel).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &orderPanel, nil
 }
 
 func (r *Repository) FindWorkOrderById(id uint) (*models.WorkOrder, error) {
@@ -284,6 +325,11 @@ func (r *Repository) CreateOrderPanelsBatch(orderPanels []*models.OrderPanel) er
 	return r.db.Create(&orderPanels).Error
 }
 
+func (r *Repository) CreateRepairHistory(tx *gorm.DB, history *models.RepairHistory) error {
+	return tx.Create(history).Error
+}
+
+// Update
 func (r *Repository) UpdateWorkOrder(workOrder *models.WorkOrder) error {
 	return r.db.Save(workOrder).Error
 }

@@ -28,6 +28,15 @@ type CreateOrderRequest struct {
 	CreatedBy     uint              `json:"created_by" binding:"required"`
 }
 
+type AddOrderPanelRepairStatus struct {
+	OrderPanelNo uint                  `json:"order_panel_no" binding:"required"`
+	Status       string                `json:"status" binding:"required"`
+	RepairStatus string                `json:"repair_status" binding:"required"`
+	Notes        string                `json:"notes" binding:"required"`
+	CreatedBy    uint                  `json:"created_by" binding:"required"`
+	RepairPhotos []RepairPhotoMetadata `json:"repair_photos"`
+}
+
 type OrderPanelRequest struct {
 	OrderPanelNo            uint   `json:"order_panel_no" binding:"required"`
 	WOGroupNumber           uint   `json:"wo_group_number"`
@@ -76,6 +85,12 @@ type NegotiationPhotoMetadata struct {
 	FileIndex    int  `json:"file_index" binding:"required"`
 }
 
+type RepairPhotoMetadata struct {
+	FileIndex    int    `json:"file_index" binding:"required"`
+	PhotoCaption string `json:"photo_caption"`
+	PhotoType    string `json:"photo_type" binding:"required"`
+}
+
 type AdditionalWorkPhotoMetadata struct {
 	WorkshopPanelPricingNo uint   `json:"workshop_panel_pricing_no"`
 	FileIndex              int    `json:"file_index" binding:"required"`
@@ -113,4 +128,10 @@ type ExtendDeadlineRequest struct {
 	CancelNegotiationRequest
 	NewDeadline time.Time `json:"new_deadline"`
 	Reason      *string   `json:"reason"`
+}
+
+type CompleteRepairsRequest struct {
+	CancelNegotiationRequest
+	CompletionNotes *string               `json:"completion_notes"`
+	RepairPhotos    []RepairPhotoMetadata `json:"repair_photos"`
 }

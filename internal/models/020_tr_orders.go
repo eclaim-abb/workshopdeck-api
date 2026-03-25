@@ -11,7 +11,7 @@ type Order struct {
 	OrderType      string    `gorm:"type:enum('insurance','manual');not null" json:"order_type"`
 	ClientNo       uint      `gorm:"type:int(11);not null" json:"client_no"`
 	ClaimDetails   string    `gorm:"not null" json:"claim_details"`
-	Eta            time.Time `gorm:"column:eta;type:date;null" json:"eta"`
+	Eta            time.Time `gorm:"column:ETA;type:date;null" json:"eta"`
 	Notes          *string   `gorm:"column:notes;type:varchar(255);null" json:"notes"`
 	DiscountType   string    `gorm:"type:enum('fixed','percent');null" json:"discount_type"`
 	Discount       float64   `gorm:"type:float;default:0;not null" json:"discount"`

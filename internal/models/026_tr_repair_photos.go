@@ -9,6 +9,7 @@ type RepairPhoto struct {
 	PhotoType            string    `gorm:"type:enum('initial','repair','replacement','epoxy','completed');not null" json:"photo_type"`
 	PhotoCaption         string    `gorm:"type:varchar(255);null" json:"photo_caption"`
 	PhotoUrl             string    `gorm:"type:varchar(255);not null" json:"photo_url"`
+	IsLocked             bool      `gorm:"type:tinyint(1);default:0;not null" json:"is_locked"`
 	CreatedAt            time.Time `gorm:"column:created_date;type:datetime;default:CURRENT_TIMESTAMP" json:"created_date"`
 	CreatedBy            *uint     `gorm:"column:created_by;type:int(11);null" json:"created_by"`
 	UpdatedAt            time.Time `gorm:"column:last_modified_date;null;type:datetime;default:CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP" json:"last_modified_date"`

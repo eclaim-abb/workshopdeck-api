@@ -5,7 +5,7 @@ import "time"
 type RepairHistory struct {
 	RepairHistoryNo uint      `gorm:"primaryKey;not null;autoIncrement;type:int(11)" json:"repair_history_no"`
 	OrderPanelNo    uint      `gorm:"not null;type:int(11)" json:"order_panel_no"`
-	Status          string    `gorm:"type:enum('incomplete','completed','requesting','ordering');not null" json:"repair_status"`
+	Status          string    `gorm:"column:repair_status;type:enum('incomplete','completed','requesting','ordering');not null" json:"repair_status"`
 	Note            string    `gorm:"type:varchar(255);null" json:"note"`
 	CreatedAt       time.Time `gorm:"column:created_date;type:datetime;default:CURRENT_TIMESTAMP" json:"created_date"`
 	CreatedBy       *uint     `gorm:"column:created_by;type:int(11);null" json:"created_by"`
