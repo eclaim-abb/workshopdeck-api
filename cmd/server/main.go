@@ -66,6 +66,9 @@ func main() {
 	r.Use(middleware.SecurityHeaders(cfg.Env))
 
 	r.Static("/uploads", cfg.UploadPath)
+	r.Static("/add", cfg.UploadPath+"/add")
+	r.Static("/nego", cfg.UploadPath+"/nego")
+	r.Static("/repair", cfg.UploadPath+"/repair")
 
 	// Health check — outside /api so it doesn't require an API key
 	r.GET("/health", func(c *gin.Context) {
