@@ -89,7 +89,6 @@ func (r *Repository) GetLatestRepairHistory(db *gorm.DB, orderPanelNo uint) (*mo
 	var history models.RepairHistory
 
 	err := db.Where("order_panel_no = ? AND is_locked = 0", orderPanelNo).
-		Order("round_count DESC").
 		First(&history).Error
 
 	if err != nil {
@@ -156,7 +155,9 @@ func (r *Repository) ViewOrderDetails(id uint) (models.Order, error) {
 		Preload("WorkOrders.OrderPanels.WorkshopMeasurement").
 		Preload("WorkOrders.OrderPanels.FinalMeasurement").
 		Preload("WorkOrders.OrderPanels.RepairHistory").
+		Preload("WorkOrders.OrderPanels.RepairHistory.CreatedByUser").
 		Preload("WorkOrders.OrderPanels.NegotiationHistory").
+		Preload("WorkOrders.OrderPanels.NegotiationHistory.CreatedByUser").
 		Preload("WorkOrders.OrderPanels.NegotiationHistory.OldMeasurement").
 		Preload("WorkOrders.OrderPanels.NegotiationHistory.ProposedMeasurement").
 		Preload("WorkOrders.OrderPanels.RepairHistory.RepairPhotos").

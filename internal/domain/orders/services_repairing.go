@@ -302,7 +302,20 @@ func (s *Service) CompleteRepairs(
 	}
 
 	for _, op := range orderPanels {
-		err := s.repo.WithTransaction(func(tx *gorm.DB) error {
+		if op.NegotiationStatus != "" && op.NegotiationStatus == "rejected" {
+			continue
+		}
+
+		latestHistory, err := s.repo.GetLatestRepairHistory(s.repo.db, op.OrderPanelNo)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get latest repair history for panel %d: %w", op.OrderPanelNo, err)
+		}
+
+		if latestHistory != nil && latestHistory.Status == "completed" {
+			continue
+		}
+
+		err = s.repo.WithTransaction(func(tx *gorm.DB) error {
 			note := ""
 			if req.CompletionNotes != nil {
 				note = *req.CompletionNotes
