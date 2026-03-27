@@ -135,3 +135,30 @@ type CompleteRepairsRequest struct {
 	CompletionNotes *string               `json:"completion_notes"`
 	RepairPhotos    []RepairPhotoMetadata `json:"repair_photos"`
 }
+
+type SparePartPhotoMetadata struct {
+	OrderPanelNo uint   `json:"order_panel_no" binding:"required"`
+	FileIndex    int    `json:"file_index" binding:"required"`
+	PhotoCaption string `json:"photo_caption"`
+}
+
+type RequestDataRequest struct {
+	OrderPanelNo uint   `json:"order_panel_no"`
+	Description  string `json:"description"`
+	Qty          uint   `json:"qty"`
+}
+
+type OrderDataRequest struct {
+	OrderPanelNo uint   `json:"order_panel_no"`
+	Description  string `json:"description"`
+	Qty          uint   `json:"qty"`
+	PricePerUnit uint   `json:"price_per_unit"`
+	Suppliers    []uint `json:"suppliers"`
+}
+
+type RequestOrderSparePartRequest struct {
+	CreatedBy uint                     `json:"created_by"`
+	Requests  []RequestDataRequest     `json:"requests"`
+	Orders    []OrderDataRequest       `json:"orders"`
+	Photos    []SparePartPhotoMetadata `json:"photos"`
+}

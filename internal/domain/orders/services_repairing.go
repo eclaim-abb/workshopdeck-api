@@ -184,7 +184,6 @@ func (s *Service) UpdateOrderPanelRepairStatus(req *AddOrderPanelRepairStatus, f
 		uploads := uploadedPhotos[req.OrderPanelNo]
 
 		if len(uploads) > 0 {
-			// Create photo records for ALL uploads
 			repairPhotoRecords := make([]models.RepairPhoto, 0, len(uploads))
 			for _, up := range uploads {
 				repairPhotoRecords = append(repairPhotoRecords, models.RepairPhoto{
@@ -196,13 +195,11 @@ func (s *Service) UpdateOrderPanelRepairStatus(req *AddOrderPanelRepairStatus, f
 				})
 			}
 
-			// Insert all photos in one call
 			if err := s.repo.CreateRepairPhotosTx(tx, repairPhotoRecords); err != nil {
 				return fmt.Errorf("failed to create repair photos for panel %d: %w", req.OrderPanelNo, err)
 			}
 		}
 
-		// Update order panel status
 		if orderPanel.CompletionStatus != req.Status {
 			orderPanel.CompletionStatus = req.Status
 			orderPanel.LastModifiedBy = &req.CreatedBy
@@ -224,7 +221,6 @@ func (s *Service) CompleteRepairs(
 	files []*multipart.FileHeader,
 	uploadFn func(file multipart.File, header *multipart.FileHeader, folder string) (string, error),
 ) (*models.Order, error) {
-
 	if req.LastModifiedBy == 0 {
 		return nil, errors.New("last_modified_by is needed")
 	}
@@ -240,7 +236,6 @@ func (s *Service) CompleteRepairs(
 
 	orderPanels := workOrder.OrderPanels
 
-	// Validate files
 	allowedTypes := map[string]bool{
 		"image/jpeg": true,
 		"image/jpg":  true,
@@ -378,4 +373,257 @@ func (s *Service) CompleteRepairs(
 	}
 
 	return order, nil
+}
+
+type uploadFnType func(file multipart.File, header *multipart.FileHeader, folder string) (string, error)
+
+// validateSparePartFiles checks MIME type and file size for all uploaded files.
+func validateSparePartFiles(files []*multipart.FileHeader) error {
+	allowedTypes := map[string]bool{
+		"image/jpeg": true,
+		"image/jpg":  true,
+		"image/png":  true,
+		"image/webp": true,
+	}
+	maxSize := int64(10 << 20)
+
+	for _, fh := range files {
+		if fh.Size > maxSize {
+			return fmt.Errorf("file %s exceeds 10MB limit", fh.Filename)
+		}
+		if !allowedTypes[fh.Header.Get("Content-Type")] {
+			return fmt.Errorf("invalid file type %s for file %s", fh.Header.Get("Content-Type"), fh.Filename)
+		}
+	}
+	return nil
+}
+
+// uploadSparePartPhotos uploads all photos referenced by photoMeta and returns
+// a map of orderPanelNo → list of uploaded URLs+captions.
+func uploadSparePartPhotos(
+	photos []SparePartPhotoMetadata,
+	files []*multipart.FileHeader,
+	folder string,
+	uploadFn uploadFnType,
+) (map[uint][]struct {
+	url     string
+	caption string
+}, error) {
+	result := make(map[uint][]struct {
+		url     string
+		caption string
+	})
+
+	for _, meta := range photos {
+		if meta.FileIndex < 0 || meta.FileIndex >= len(files) {
+			return nil, fmt.Errorf("photo file_index %d is out of range", meta.FileIndex)
+		}
+
+		fh := files[meta.FileIndex]
+		file, err := fh.Open()
+		if err != nil {
+			return nil, fmt.Errorf("failed to open file %s: %w", fh.Filename, err)
+		}
+
+		photoURL, err := uploadFn(file, fh, folder)
+		file.Close()
+		if err != nil {
+			return nil, fmt.Errorf("failed to upload file %s: %w", fh.Filename, err)
+		}
+
+		result[meta.OrderPanelNo] = append(result[meta.OrderPanelNo], struct {
+			url     string
+			caption string
+		}{url: photoURL, caption: meta.PhotoCaption})
+	}
+
+	return result, nil
+}
+
+// RequestSparePart handles spare part requests sent to the insurer.
+// At least one entry in req.Requests must be present; each must have a
+// description, a qty ≥ 1, and at least one photo.
+func (s *Service) RequestSparePart(
+	req *RequestOrderSparePartRequest,
+	files []*multipart.FileHeader,
+	uploadFn uploadFnType,
+) (*models.Order, error) {
+	// ---- Basic guards ----
+	if req.CreatedBy == 0 {
+		return nil, errors.New("created_by is needed")
+	}
+	if len(req.Requests) == 0 {
+		return nil, errors.New("at least one request entry is required")
+	}
+	if len(req.Photos) != len(files) {
+		return nil, fmt.Errorf("file count mismatch: expected %d files based on photos metadata, got %d", len(req.Photos), len(files))
+	}
+
+	// ---- Validate each request entry ----
+	// Track which order panel nos have photos declared
+	photoPanelNos := make(map[uint]bool)
+	for _, p := range req.Photos {
+		photoPanelNos[p.OrderPanelNo] = true
+	}
+
+	for _, r := range req.Requests {
+		if r.OrderPanelNo == 0 {
+			return nil, errors.New("order_panel_no is required for every request entry")
+		}
+		if r.Description == "" {
+			return nil, fmt.Errorf("description is required for order panel %d", r.OrderPanelNo)
+		}
+		if r.Qty == 0 {
+			return nil, fmt.Errorf("qty must be at least 1 for order panel %d", r.OrderPanelNo)
+		}
+		if !photoPanelNos[r.OrderPanelNo] {
+			return nil, fmt.Errorf("at least one photo is required for order panel %d", r.OrderPanelNo)
+		}
+	}
+
+	// ---- Validate files ----
+	if err := validateSparePartFiles(files); err != nil {
+		return nil, err
+	}
+
+	// ---- Derive order from first panel ----
+	firstPanel, err := s.repo.FindOrderPanelById(req.Requests[0].OrderPanelNo)
+	if err != nil {
+		return nil, fmt.Errorf("order panel %d not found: %w", req.Requests[0].OrderPanelNo, err)
+	}
+	workOrder, err := s.repo.FindWorkOrderById(firstPanel.WorkOrderNo)
+	if err != nil {
+		return nil, fmt.Errorf("work order not found: %w", err)
+	}
+
+	// ---- Upload photos ----
+	now := time.Now()
+	folder := fmt.Sprintf(
+		"spare-parts/request/%d/%d%02d%02d",
+		workOrder.OrderNo,
+		now.Year(),
+		now.Month(),
+		now.Day(),
+	)
+
+	uploadedPhotos, err := uploadSparePartPhotos(req.Photos, files, folder, uploadFn)
+	if err != nil {
+		return nil, err
+	}
+
+	// ---- Persist (transaction) ----
+	// TODO: replace with real model creates once models.SparePartRequest exists.
+	// For now we log and return the order so the handler compiles.
+	_ = uploadedPhotos
+
+	order, err := s.repo.FindOrderById(workOrder.OrderNo)
+	if err != nil {
+		return nil, fmt.Errorf("order not found: %w", err)
+	}
+
+	return order, nil
+}
+
+// OrderSparePart places a direct spare part order with one or more suppliers.
+// Each entry in req.Orders must have a description, qty ≥ 1, price_per_unit > 0,
+// at least one supplier, and at least one photo.
+func (s *Service) OrderSparePart(
+	req *RequestOrderSparePartRequest,
+	files []*multipart.FileHeader,
+	uploadFn uploadFnType,
+) (*models.Order, error) {
+	if req.CreatedBy == 0 {
+		return nil, errors.New("created_by is needed")
+	}
+	if len(req.Orders) == 0 {
+		return nil, errors.New("at least one order entry is required")
+	}
+	if len(req.Photos) != len(files) {
+		return nil, fmt.Errorf("file count mismatch: expected %d files based on photos metadata, got %d", len(req.Photos), len(files))
+	}
+
+	// ---- Validate each order entry ----
+	photoPanelNos := make(map[uint]bool)
+	for _, p := range req.Photos {
+		photoPanelNos[p.OrderPanelNo] = true
+	}
+
+	for _, o := range req.Orders {
+		if o.OrderPanelNo == 0 {
+			return nil, errors.New("order_panel_no is required for every order entry")
+		}
+		if o.Description == "" {
+			return nil, fmt.Errorf("description is required for order panel %d", o.OrderPanelNo)
+		}
+		if o.Qty == 0 {
+			return nil, fmt.Errorf("qty must be at least 1 for order panel %d", o.OrderPanelNo)
+		}
+		if o.PricePerUnit == 0 {
+			return nil, fmt.Errorf("price_per_unit must be greater than 0 for order panel %d", o.OrderPanelNo)
+		}
+		if len(o.Suppliers) == 0 {
+			return nil, fmt.Errorf("at least one supplier is required for order panel %d", o.OrderPanelNo)
+		}
+		if !photoPanelNos[o.OrderPanelNo] {
+			return nil, fmt.Errorf("at least one photo is required for order panel %d", o.OrderPanelNo)
+		}
+
+		// Verify each supplier exists
+		for _, supplierID := range o.Suppliers {
+			if _, err := s.repo.FindSupplierFromID(supplierID); err != nil {
+				return nil, fmt.Errorf("supplier %d not found for order panel %d", supplierID, o.OrderPanelNo)
+			}
+		}
+	}
+
+	// ---- Validate files ----
+	if err := validateSparePartFiles(files); err != nil {
+		return nil, err
+	}
+
+	// ---- Derive order from first panel ----
+	firstPanel, err := s.repo.FindOrderPanelById(req.Orders[0].OrderPanelNo)
+	if err != nil {
+		return nil, fmt.Errorf("order panel %d not found: %w", req.Orders[0].OrderPanelNo, err)
+	}
+	workOrder, err := s.repo.FindWorkOrderById(firstPanel.WorkOrderNo)
+	if err != nil {
+		return nil, fmt.Errorf("work order not found: %w", err)
+	}
+
+	// ---- Upload photos ----
+	now := time.Now()
+	folder := fmt.Sprintf(
+		"spare-parts/order/%d/%d%02d%02d",
+		workOrder.OrderNo,
+		now.Year(),
+		now.Month(),
+		now.Day(),
+	)
+
+	uploadedPhotos, err := uploadSparePartPhotos(req.Photos, files, folder, uploadFn)
+	if err != nil {
+		return nil, err
+	}
+
+	// ---- Persist (transaction) ----
+	// TODO: replace with real model creates once models.SparePartOrder exists.
+	_ = uploadedPhotos
+
+	order, err := s.repo.FindOrderById(workOrder.OrderNo)
+	if err != nil {
+		return nil, fmt.Errorf("order not found: %w", err)
+	}
+
+	return order, nil
+}
+
+// GetSparePartsTracking returns all spare part requests/orders for a workshop.
+// TODO: implement once the tracking models are ready.
+func (s *Service) GetSparePartsTracking(workshopID uint) (interface{}, error) {
+	if workshopID == 0 {
+		return nil, errors.New("workshop_no is required")
+	}
+	// Placeholder — return empty list until models are added
+	return []interface{}{}, nil
 }

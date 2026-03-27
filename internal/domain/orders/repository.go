@@ -149,8 +149,8 @@ func (r *Repository) ViewOrderDetails(id uint) (models.Order, error) {
 		Preload("Client").
 		Preload("WorkOrders").
 		Preload("WorkOrders.OrderPanels", "is_locked = 0").
-		Preload("WorkOrders.OrderPanels.InsurerPanelPricing.Measurements").
-		Preload("WorkOrders.OrderPanels.WorkshopPanelPricing.Measurements").
+		Preload("WorkOrders.OrderPanels.InsurerPanelPricing.Measurements", "is_locked = ?", false).
+		Preload("WorkOrders.OrderPanels.WorkshopPanelPricing.Measurements", "is_locked = ?", false).
 		Preload("WorkOrders.OrderPanels.InsurerMeasurement").
 		Preload("WorkOrders.OrderPanels.WorkshopMeasurement").
 		Preload("WorkOrders.OrderPanels.FinalMeasurement").

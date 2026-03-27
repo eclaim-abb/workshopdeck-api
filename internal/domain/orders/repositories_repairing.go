@@ -30,3 +30,16 @@ func (r *Repository) CreateRepairPhotosTx(tx *gorm.DB, photos []models.RepairPho
 	}
 	return tx.Create(&photos).Error
 }
+
+func (r *Repository) FindSupplierFromID(id uint) (models.Supplier, error) {
+	var supplier models.Supplier
+
+	err := r.db.
+		Preload("Workshop").
+		Preload("Province").
+		Preload("City").
+		Where("r_suppliers.supplier_no = ? AND is_locked = 0", id).
+		Find(&supplier).Error
+
+	return supplier, err
+}
