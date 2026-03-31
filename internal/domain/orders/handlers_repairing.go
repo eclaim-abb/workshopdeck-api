@@ -10,6 +10,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+var errMissingDataField = &missingDataFieldError{}
+
+type missingDataFieldError struct{}
+
+func (e *missingDataFieldError) Error() string { return "missing 'data' field in form" }
+
 func (h *Handler) GetRepairingOrders(c *gin.Context) {
 	woIDStr := c.Query("workshop_no")
 
@@ -25,7 +31,6 @@ func (h *Handler) GetRepairingOrders(c *gin.Context) {
 	}
 
 	orders, err := h.service.GetRepairingOrders(uint(woID))
-
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
@@ -128,41 +133,47 @@ func (h *Handler) CompleteRepairs(c *gin.Context) {
 	response.Success(c, http.StatusCreated, "repairs completed successfully", gin.H{"order": order})
 }
 
-// RequestSpareParts handles POST /repairing/spare-parts/request
-//
-// Expects a multipart/form-data body with:
-//   - "data"    – JSON-encoded RequestOrderSparePartRequest
-//   - "files[]" – one file per entry in req.Photos, indexed by SparePartPhotoMetadata.FileIndex
-func (h *Handler) RequestSpareParts(c *gin.Context) {
+// parseSparePartForm is a shared helper that reads the multipart "data" JSON
+// and the "files[]" slice from a gin context.
+func parseSparePartForm(c *gin.Context) (*RequestOrderSparePartRequest, []*multipart.FileHeader, error) {
 	if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
-		response.Error(c, http.StatusBadRequest, "Failed to parse multipart form")
-		return
+		return nil, nil, err
 	}
 
 	dataStr := c.PostForm("data")
 	if dataStr == "" {
-		response.Error(c, http.StatusBadRequest, "Missing 'data' field in form")
-		return
+		return nil, nil, errMissingDataField
 	}
 
 	var req RequestOrderSparePartRequest
 	if err := json.Unmarshal([]byte(dataStr), &req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid JSON in 'data' field: "+err.Error())
-		return
+		return nil, nil, err
 	}
 
 	form, err := c.MultipartForm()
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "Failed to get multipart form")
+		return nil, nil, err
+	}
+
+	return &req, form.File["files"], nil
+}
+
+func (h *Handler) RequestSpareParts(c *gin.Context) {
+	req, files, err := parseSparePartForm(c)
+	if err != nil {
+		if err == errMissingDataField {
+			response.Error(c, http.StatusBadRequest, err.Error())
+		} else {
+			response.Error(c, http.StatusBadRequest, "Failed to parse form: "+err.Error())
+		}
 		return
 	}
-	files := form.File["files"]
 
 	uploadFn := func(file multipart.File, header *multipart.FileHeader, folder string) (string, error) {
 		return h.storage.Upload(file, header, folder)
 	}
 
-	order, err := h.service.RequestSparePart(&req, files, uploadFn)
+	order, err := h.service.RequestSparePart(req, files, uploadFn)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
@@ -172,62 +183,25 @@ func (h *Handler) RequestSpareParts(c *gin.Context) {
 }
 
 func (h *Handler) OrderSpareParts(c *gin.Context) {
-	if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
-		response.Error(c, http.StatusBadRequest, "Failed to parse multipart form")
-		return
-	}
-
-	dataStr := c.PostForm("data")
-	if dataStr == "" {
-		response.Error(c, http.StatusBadRequest, "Missing 'data' field in form")
-		return
-	}
-
-	var req RequestOrderSparePartRequest
-	if err := json.Unmarshal([]byte(dataStr), &req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid JSON in 'data' field: "+err.Error())
-		return
-	}
-
-	form, err := c.MultipartForm()
+	req, files, err := parseSparePartForm(c)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "Failed to get multipart form")
+		if err == errMissingDataField {
+			response.Error(c, http.StatusBadRequest, err.Error())
+		} else {
+			response.Error(c, http.StatusBadRequest, "Failed to parse form: "+err.Error())
+		}
 		return
 	}
-	files := form.File["files"]
 
 	uploadFn := func(file multipart.File, header *multipart.FileHeader, folder string) (string, error) {
 		return h.storage.Upload(file, header, folder)
 	}
 
-	order, err := h.service.OrderSparePart(&req, files, uploadFn)
+	order, err := h.service.OrderSparePart(req, files, uploadFn)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	response.Success(c, http.StatusCreated, "spare part order created successfully", gin.H{"order": order})
-}
-
-// GetSparePartsTracking handles GET /repairing/spare-parts/tracking
-func (h *Handler) GetSparePartsTracking(c *gin.Context) {
-	woIDStr := c.Query("workshop_no")
-	if woIDStr == "" {
-		response.Error(c, http.StatusBadRequest, "workshop_no is required")
-		return
-	}
-
-	woID, err := strconv.ParseUint(woIDStr, 10, 32)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid workshop_no format")
-		return
-	}
-
-	tracking, err := h.service.GetSparePartsTracking(uint(woID))
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	response.Success(c, http.StatusOK, "Spare parts tracking retrieved successfully", gin.H{"tracking": tracking})
 }

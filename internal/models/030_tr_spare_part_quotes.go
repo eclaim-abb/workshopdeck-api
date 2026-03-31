@@ -8,23 +8,23 @@ type SparePartQuote struct {
 	SupplierNo       uint  `gorm:"type:int(11);not null" json:"supplier_no"`
 	InsuranceNo      *uint `gorm:"type:int(11);null" json:"insurance_no"`
 
-	CurrentRound          uint      `gorm:"type:tinyint(3);null" json:"current_round"`
-	SupplierStatus        string    `gorm:"type:enum('waiting','processing','replied','delivering','received');not null" json:"supplier_status"`
-	AvailableStock        uint      `gorm:"type:int(11);null" json:"available_stock"`
-	InitialUnitPrice      uint      `gorm:"type:int(11);null" json:"initial_unit_price"`
-	RequestedStock        uint      `gorm:"type:int(11);null" json:"requested_stock"`
-	RequestedUnitPrice    uint      `gorm:"type:int(11);null" json:"requested_unit_price"`
-	OrderedStock          uint      `gorm:"type:int(11);null" json:"ordered_stock"`
-	OrderedDate           time.Time `gorm:"type:date;null" json:"ordered_date"`
-	OrderedUnitPrice      uint      `gorm:"type:int(11);null" json:"ordered_unit_price"`
-	EstimatedDeliveryDate time.Time `gorm:"type:date;null" json:"estimated_delivery_date"`
-	CourierName           string    `gorm:"type:varchar(50);null" json:"courier_name"`
-	CourierTrackingNo     string    `gorm:"type:varchar(50);null" json:"courier_tracking_no"`
+	CurrentRound          uint       `gorm:"type:tinyint(3);null" json:"current_round"`
+	SupplierStatus        string     `gorm:"type:enum('waiting','processing','replied','delivering','received');not null" json:"supplier_status"`
+	AvailableStock        *uint      `gorm:"type:int(11);null" json:"available_stock"`
+	InitialUnitPrice      *uint      `gorm:"type:int(11);null" json:"initial_unit_price"`
+	RequestedStock        *uint      `gorm:"type:int(11);null" json:"requested_stock"`
+	RequestedUnitPrice    *uint      `gorm:"type:int(11);null" json:"requested_unit_price"`
+	OrderedStock          *uint      `gorm:"type:int(11);null" json:"ordered_stock"`
+	OrderedDate           *time.Time `gorm:"type:date;null" json:"ordered_date"`
+	OrderedUnitPrice      *uint      `gorm:"type:int(11);null" json:"ordered_unit_price"`
+	EstimatedDeliveryDate *time.Time `gorm:"type:date;null" json:"estimated_delivery_date"`
+	CourierName           *string    `gorm:"type:varchar(50);null" json:"courier_name"`
+	CourierTrackingNo     *string    `gorm:"type:varchar(50);null" json:"courier_tracking_no"`
 
-	CreatedAt      time.Time `gorm:"column:created_date;type:datetime;default:CURRENT_TIMESTAMP" json:"created_date"`
-	CreatedBy      *uint     `gorm:"column:created_by;type:int(11);null" json:"created_by"`
-	UpdatedAt      time.Time `gorm:"column:last_modified_date;null;type:datetime;default:CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP" json:"last_modified_date"`
-	LastModifiedBy *uint     `gorm:"column:last_modified_by;null;type:int(11)" json:"last_modified_by"`
+	CreatedAt      time.Time  `gorm:"column:created_date;type:datetime;default:CURRENT_TIMESTAMP" json:"created_date"`
+	CreatedBy      *uint      `gorm:"column:created_by;type:int(11);null" json:"created_by"`
+	UpdatedAt      *time.Time `gorm:"column:last_modified_date;null;type:datetime;default:CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP" json:"last_modified_date"`
+	LastModifiedBy *uint      `gorm:"column:last_modified_by;null;type:int(11)" json:"last_modified_by"`
 
 	OrderAndRequest    *OrderAndRequest `gorm:"foreignKey:OrderRequestNo;references:OrderRequestNo" json:"order_and_request,omitempty"`
 	Supplier           *Supplier        `gorm:"foreignKey:SupplierNo;references:SupplierNo" json:"supplier,omitempty"`

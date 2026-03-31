@@ -42,23 +42,23 @@ func RegisterRoutes(router *gin.RouterGroup, handler *Handler, authMiddleware gi
 					spareParts.POST("/request", handler.RequestSpareParts)
 					spareParts.POST("/order", handler.OrderSpareParts)
 
-					sparePartsTracking := spareParts.Group("/tracking")
-					{
-						sparePartsTracking.GET("", handler.GetSparePartsTracking)
-						// 			suppliers := sparePartsTracking.Group("/suppliers")
-						// 			{
-						// 				cancel := suppliers.Group("/cancel")
-						// 				{
-						// 					cancel.POST("/:id", handler.CancelSupplier)
-						// 					cancel.POST("/overdue/:id", handler.CancelSupplierOverdue)
-						// 					cancel.POST("/no-response/:id", handler.CancelSupplierOverdue)
-						// 					cancel.POST("/remaining/:id", handler.CancelRemainingSuppliers)
-						// 				}
+					// sparePartsTracking := spareParts.Group("/tracking")
+					// {
+					// sparePartsTracking.GET("", handler.GetSparePartsTracking)
+					// 			suppliers := sparePartsTracking.Group("/suppliers")
+					// 			{
+					// 				cancel := suppliers.Group("/cancel")
+					// 				{
+					// 					cancel.POST("/:id", handler.CancelSupplier)
+					// 					cancel.POST("/overdue/:id", handler.CancelSupplierOverdue)
+					// 					cancel.POST("/no-response/:id", handler.CancelSupplierOverdue)
+					// 					cancel.POST("/remaining/:id", handler.CancelRemainingSuppliers)
+					// 				}
 
-						// 				suppliers.POST("/accept/:id", handler.AcceptSupplierOffer)
-						// 				suppliers.POST("/negotiate/:id", handler.NegotiateOffer)
-						// 			}
-					}
+					// 				suppliers.POST("/accept/:id", handler.AcceptSupplierOffer)
+					// 				suppliers.POST("/negotiate/:id", handler.NegotiateOffer)
+					// 			}
+					// }
 				}
 			}
 

@@ -18,11 +18,9 @@ func (s *Service) ExtendDeadline(req ExtendDeadlineRequest) (*models.Order, erro
 	if req.LastModifiedBy == 0 {
 		return nil, errors.New("last_modified_by is needed")
 	}
-
 	if req.NewDeadline.IsZero() {
 		return nil, errors.New("new_deadline is needed")
 	}
-
 	if req.OrderNo == 0 {
 		return nil, errors.New("order_no is needed")
 	}
@@ -45,7 +43,11 @@ func (s *Service) ExtendDeadline(req ExtendDeadlineRequest) (*models.Order, erro
 	return order, nil
 }
 
-func (s *Service) UpdateOrderPanelRepairStatus(req *AddOrderPanelRepairStatus, files []*multipart.FileHeader, uploadFn func(file multipart.File, header *multipart.FileHeader, folder string) (string, error)) (*models.Order, error) {
+func (s *Service) UpdateOrderPanelRepairStatus(
+	req *AddOrderPanelRepairStatus,
+	files []*multipart.FileHeader,
+	uploadFn func(file multipart.File, header *multipart.FileHeader, folder string) (string, error),
+) (*models.Order, error) {
 	if req.CreatedBy == 0 {
 		return nil, errors.New("created_by is needed")
 	}
@@ -74,7 +76,6 @@ func (s *Service) UpdateOrderPanelRepairStatus(req *AddOrderPanelRepairStatus, f
 		return nil, err
 	}
 
-	// Validate files
 	allowedTypes := map[string]bool{
 		"image/jpeg": true,
 		"image/jpg":  true,
@@ -161,13 +162,10 @@ func (s *Service) UpdateOrderPanelRepairStatus(req *AddOrderPanelRepairStatus, f
 			repairHistory.Status = req.RepairStatus
 		} else {
 			latestRepairHistory, err := s.repo.GetLatestRepairHistory(tx, req.OrderPanelNo)
-
 			if err != nil {
 				return fmt.Errorf("failed to get latest repair history for order panel %d: %w", req.OrderPanelNo, err)
 			}
-
 			latestStatus := latestRepairHistory.Status
-
 			if latestStatus != "" {
 				repairHistory.Status = latestStatus
 			} else {
@@ -184,7 +182,6 @@ func (s *Service) UpdateOrderPanelRepairStatus(req *AddOrderPanelRepairStatus, f
 		}
 
 		uploads := uploadedPhotos[req.OrderPanelNo]
-
 		if len(uploads) > 0 {
 			repairPhotoRecords := make([]models.RepairPhoto, 0, len(uploads))
 			for _, up := range uploads {
@@ -196,7 +193,6 @@ func (s *Service) UpdateOrderPanelRepairStatus(req *AddOrderPanelRepairStatus, f
 					CreatedBy:       &req.CreatedBy,
 				})
 			}
-
 			if err := s.repo.CreateRepairPhotosTx(tx, repairPhotoRecords); err != nil {
 				return fmt.Errorf("failed to create repair photos for panel %d: %w", req.OrderPanelNo, err)
 			}
@@ -205,9 +201,7 @@ func (s *Service) UpdateOrderPanelRepairStatus(req *AddOrderPanelRepairStatus, f
 		if orderPanel.CompletionStatus != req.Status {
 			orderPanel.CompletionStatus = req.Status
 			orderPanel.LastModifiedBy = &req.CreatedBy
-
-			err = s.repo.UpdateOrderPanelTx(tx, orderPanel)
-			if err != nil {
+			if err := s.repo.UpdateOrderPanelTx(tx, orderPanel); err != nil {
 				return fmt.Errorf("failed to update order panel status: %w", err)
 			}
 		}
@@ -226,7 +220,6 @@ func (s *Service) CompleteRepairs(
 	if req.LastModifiedBy == 0 {
 		return nil, errors.New("last_modified_by is needed")
 	}
-
 	if req.OrderNo == 0 {
 		return nil, errors.New("order no is required")
 	}
@@ -277,20 +270,16 @@ func (s *Service) CompleteRepairs(
 		if meta.FileIndex < 0 || meta.FileIndex >= len(files) {
 			return nil, fmt.Errorf("photo file_index %d is out of range", meta.FileIndex)
 		}
-
 		fh := files[meta.FileIndex]
-
 		file, err := fh.Open()
 		if err != nil {
 			return nil, fmt.Errorf("failed to open file %s: %w", fh.Filename, err)
 		}
-
 		url, err := uploadFn(file, fh, folder)
 		file.Close()
 		if err != nil {
 			return nil, fmt.Errorf("failed to upload file %s: %w", fh.Filename, err)
 		}
-
 		uploadedPhotos = append(uploadedPhotos, uploadedPhoto{
 			url:       url,
 			caption:   meta.PhotoCaption,
@@ -307,7 +296,6 @@ func (s *Service) CompleteRepairs(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get latest repair history for panel %d: %w", op.OrderPanelNo, err)
 		}
-
 		if latestHistory != nil && latestHistory.Status == "completed" {
 			continue
 		}
@@ -331,7 +319,6 @@ func (s *Service) CompleteRepairs(
 
 			if len(uploadedPhotos) > 0 {
 				repairPhotoRecords := make([]models.RepairPhoto, 0, len(uploadedPhotos))
-
 				for _, up := range uploadedPhotos {
 					repairPhotoRecords = append(repairPhotoRecords, models.RepairPhoto{
 						RepairHistoryNo: &repairHistory.RepairHistoryNo,
@@ -341,7 +328,6 @@ func (s *Service) CompleteRepairs(
 						CreatedBy:       &req.LastModifiedBy,
 					})
 				}
-
 				if err := s.repo.CreateRepairPhotosTx(tx, repairPhotoRecords); err != nil {
 					return fmt.Errorf("failed to create repair photos for panel %d: %w", op.OrderPanelNo, err)
 				}
@@ -349,7 +335,6 @@ func (s *Service) CompleteRepairs(
 
 			op.LastModifiedBy = &req.LastModifiedBy
 			op.CompletionStatus = "completed"
-
 			if err := s.repo.UpdateOrderPanelTx(tx, &op); err != nil {
 				return fmt.Errorf("failed to update order panel for order panel %d: %w", op.OrderPanelNo, err)
 			}
@@ -379,7 +364,7 @@ func (s *Service) CompleteRepairs(
 
 type uploadFnType func(file multipart.File, header *multipart.FileHeader, folder string) (string, error)
 
-// validateSparePartFiles checks MIME type and file size for all uploaded files.
+// validateSparePartFiles checks MIME type and size for every uploaded file.
 func validateSparePartFiles(files []*multipart.FileHeader) error {
 	allowedTypes := map[string]bool{
 		"image/jpeg": true,
@@ -400,87 +385,73 @@ func validateSparePartFiles(files []*multipart.FileHeader) error {
 	return nil
 }
 
-// uploadSparePartPhotos uploads all photos referenced by photoMeta and returns
-// a map of orderPanelNo → list of uploaded URLs+captions.
-func uploadSparePartPhotos(
+// uploadedSparePartPhoto holds the result of a single file upload.
+type uploadedSparePartPhoto struct {
+	url     string
+	caption string
+}
+
+// uploadPhotoSlice uploads a slice of SparePartPhotoMetadata and returns the
+// results in the same order. file_index values must be valid positions in files.
+func uploadPhotoSlice(
 	photos []SparePartPhotoMetadata,
 	files []*multipart.FileHeader,
 	folder string,
 	uploadFn uploadFnType,
-) (map[uint][]struct {
-	url     string
-	caption string
-}, error) {
-	result := make(map[uint][]struct {
-		url     string
-		caption string
-	})
+) ([]uploadedSparePartPhoto, error) {
+	results := make([]uploadedSparePartPhoto, 0, len(photos))
 
 	for _, meta := range photos {
 		if meta.FileIndex < 0 || meta.FileIndex >= len(files) {
-			return nil, fmt.Errorf("photo file_index %d is out of range", meta.FileIndex)
+			return nil, fmt.Errorf("photo file_index %d is out of range (have %d files)", meta.FileIndex, len(files))
 		}
-
 		fh := files[meta.FileIndex]
 		file, err := fh.Open()
 		if err != nil {
 			return nil, fmt.Errorf("failed to open file %s: %w", fh.Filename, err)
 		}
-
 		photoURL, err := uploadFn(file, fh, folder)
 		file.Close()
 		if err != nil {
 			return nil, fmt.Errorf("failed to upload file %s: %w", fh.Filename, err)
 		}
-
-		result[meta.OrderPanelNo] = append(result[meta.OrderPanelNo], struct {
-			url     string
-			caption string
-		}{url: photoURL, caption: meta.PhotoCaption})
+		results = append(results, uploadedSparePartPhoto{url: photoURL, caption: meta.PhotoCaption})
 	}
 
-	return result, nil
+	return results, nil
 }
 
+// ---------------------------------------------------------------------------
+// RequestSparePart — requests panels from the insurer
+// ---------------------------------------------------------------------------
+
 // RequestSparePart handles spare part requests sent to the insurer.
-// At least one entry in req.Requests must be present; each must have a
-// description, a qty ≥ 1, and at least one photo.
+//
+// req.Requests must be non-nil and contain at least one panel entry.
+// Each panel must have a qty ≥ 1. The shared description and photo set
+// apply to all panels in the request.
 func (s *Service) RequestSparePart(
 	req *RequestOrderSparePartRequest,
 	files []*multipart.FileHeader,
 	uploadFn uploadFnType,
 ) (*models.Order, error) {
-	// ---- Basic guards ----
-	if req.CreatedBy == 0 {
-		return nil, errors.New("created_by is needed")
-	}
-	if len(req.Requests) == 0 {
-		return nil, errors.New("at least one request entry is required")
-	}
-	if len(req.Photos) != len(files) {
-		return nil, fmt.Errorf("file count mismatch: expected %d files based on photos metadata, got %d", len(req.Photos), len(files))
-	}
+	r := req.Requests
 
-	// ---- Validate each request entry ----
-	// Track which order panel nos have photos declared
-	photoPanelNos := make(map[uint]bool)
-	for _, p := range req.Photos {
-		photoPanelNos[p.OrderPanelNo] = true
+	// ---- Guards ----
+	if r == nil {
+		return nil, errors.New("requests field is required")
 	}
-
-	for _, r := range req.Requests {
-		if r.OrderPanelNo == 0 {
-			return nil, errors.New("order_panel_no is required for every request entry")
-		}
-		if r.Description == "" {
-			return nil, fmt.Errorf("description is required for order panel %d", r.OrderPanelNo)
-		}
-		if r.Qty == 0 {
-			return nil, fmt.Errorf("qty must be at least 1 for order panel %d", r.OrderPanelNo)
-		}
-		if !photoPanelNos[r.OrderPanelNo] {
-			return nil, fmt.Errorf("at least one photo is required for order panel %d", r.OrderPanelNo)
-		}
+	if r.CreatedBy == 0 {
+		return nil, errors.New("requests.created_by is required")
+	}
+	if r.Description == "" {
+		return nil, errors.New("requests.description is required")
+	}
+	if len(r.Panels) == 0 {
+		return nil, errors.New("requests.panels must contain at least one entry")
+	}
+	if len(r.Photos) == 0 {
+		return nil, errors.New("requests.photos must contain at least one photo")
 	}
 
 	// ---- Validate files ----
@@ -489,91 +460,193 @@ func (s *Service) RequestSparePart(
 	}
 
 	// ---- Derive order from first panel ----
-	firstPanel, err := s.repo.FindOrderPanelById(req.Requests[0].OrderPanelNo)
+	orderPanel, err := s.repo.FindOrderPanelById(r.Panels[0].OrderPanelNo)
 	if err != nil {
-		return nil, fmt.Errorf("order panel %d not found: %w", req.Requests[0].OrderPanelNo, err)
+		return nil, fmt.Errorf("order panel %d not found: %w", r.Panels[0].OrderPanelNo, err)
 	}
-	workOrder, err := s.repo.FindWorkOrderById(firstPanel.WorkOrderNo)
+
+	workOrder, err := s.repo.FindWorkOrderById(orderPanel.WorkOrderNo)
 	if err != nil {
 		return nil, fmt.Errorf("work order not found: %w", err)
 	}
 
-	// ---- Upload photos ----
+	order, err := s.repo.ViewOrderDetails(workOrder.OrderNo)
+	if err != nil {
+		return nil, fmt.Errorf("order not found: %w", err)
+	}
+	// ---- Upload shared photos ----
 	now := time.Now()
 	folder := fmt.Sprintf(
-		"spare-parts/request/%d/%d%02d%02d",
-		workOrder.OrderNo,
+		"repair/%d/spare/request/%d%02d%02d",
+		workOrder.WorkOrderNo,
 		now.Year(),
 		now.Month(),
 		now.Day(),
 	)
 
-	uploadedPhotos, err := uploadSparePartPhotos(req.Photos, files, folder, uploadFn)
+	uploadedPhotos, err := uploadPhotoSlice(r.Photos, files, folder, uploadFn)
 	if err != nil {
 		return nil, err
 	}
 
-	// ---- Persist (transaction) ----
-	// TODO: replace with real model creates once models.SparePartRequest exists.
-	// For now we log and return the order so the handler compiles.
+	err = s.repo.WithTransaction(func(tx *gorm.DB) error {
+		for _, p := range r.Panels {
+			if p.OrderPanelNo == 0 {
+				return errors.New("order_panel_no is required for every panel in requests")
+			}
+			if p.Qty == 0 {
+				return fmt.Errorf("qty must be at least 1 for order panel %d", p.OrderPanelNo)
+			}
+
+			repairHistory := &models.RepairHistory{
+				OrderPanelNo: p.OrderPanelNo,
+				Status:       "requesting",
+				Note:         r.Description,
+				CreatedBy:    &r.CreatedBy,
+			}
+
+			if err := s.repo.CreateRepairHistoryTx(tx, repairHistory); err != nil {
+				return fmt.Errorf("failed to create repair history for order panel %d: %w", p.OrderPanelNo, err)
+			}
+
+			var finPhotos []models.RepairPhoto
+			for _, uP := range uploadedPhotos {
+				repairPhoto := &models.RepairPhoto{
+					RepairHistoryNo: &repairHistory.RepairHistoryNo,
+					PhotoType:       "replacement",
+					PhotoCaption:    uP.caption,
+					PhotoUrl:        uP.url,
+					CreatedBy:       &r.CreatedBy,
+				}
+
+				finPhotos = append(finPhotos, *repairPhoto)
+			}
+
+			if err := s.repo.CreateRepairPhotosTx(tx, finPhotos); err != nil {
+				return fmt.Errorf("failed to create repair photos for repair history %d : %w", repairHistory.RepairHistoryNo, err)
+			}
+
+			orderRequest := &models.OrderAndRequest{
+				RepairHistoryNo: repairHistory.RepairHistoryNo,
+				SparePartStatus: "pending_response",
+				NeededQty:       p.Qty,
+				Description:     r.Description,
+				CreatedBy:       &r.CreatedBy,
+			}
+
+			if err := s.repo.CreateOrderAndRequestTx(tx, orderRequest); err != nil {
+				return fmt.Errorf("failed to create order and request for repair history %d: %w", repairHistory.RepairHistoryNo, err)
+			}
+
+			sparePartQuote, err := s.repo.GetSparePartQuoteTx(tx, orderRequest.OrderRequestNo)
+
+			if err != nil {
+				return fmt.Errorf("error in finding spare part quote for order request %d: %w", orderRequest.OrderRequestNo, err)
+			}
+
+			if sparePartQuote != nil {
+				sparePartQuote.CurrentRound += 1
+				sparePartQuote.SupplierStatus = "waiting"
+				sparePartQuote.LastModifiedBy = &r.CreatedBy
+				sparePartQuote.RequestedStock = &p.Qty
+				sparePartQuote.RequestedUnitPrice = &p.PricePerUnit
+
+				if err := s.repo.UpdateSparePartQuoteTx(tx, sparePartQuote); err != nil {
+					return fmt.Errorf("failed to update spare part quote for order request %d: %w", orderRequest.OrderRequestNo, err)
+				}
+			} else {
+				sparePartQuote = &models.SparePartQuote{
+					OrderRequestNo:     orderRequest.OrderRequestNo,
+					InsuranceNo:        order.InsuranceNo,
+					CurrentRound:       0,
+					SupplierStatus:     "waiting",
+					RequestedStock:     &p.Qty,
+					RequestedUnitPrice: &p.PricePerUnit,
+					CreatedBy:          &r.CreatedBy,
+				}
+
+				if err := s.repo.CreateSparePartQuoteTx(tx, sparePartQuote); err != nil {
+					return fmt.Errorf("failed to create spare part quote for order request %d: %w", orderRequest.OrderRequestNo, err)
+				}
+			}
+
+			sparePartNegotiationHistory := &models.SparePartNegotiationHistory{
+				SparePartQuotesNo: sparePartQuote.SparePartQuoteNo,
+				RoundCount:        sparePartQuote.CurrentRound,
+				NewRequestedStock: &p.Qty,
+				NewUnitPrice:      &p.PricePerUnit,
+				Status:            "pending",
+				CreatedBy:         &r.CreatedBy,
+			}
+
+			if err := s.repo.CreateSparePartNegotiationHistoryTx(tx, sparePartNegotiationHistory); err != nil {
+				return fmt.Errorf("failed to create spare part negotiation history for spare part quote %d: %w", sparePartQuote.SparePartQuoteNo, err)
+			}
+		}
+
+		return nil
+	})
+
+	// ---- Persist ----
+	// TODO: insert into models.SparePartRequest once that model exists.
+	// uploadedPhotos and r.Panels are ready to use.
 	_ = uploadedPhotos
 
-	order, err := s.repo.FindOrderById(workOrder.OrderNo)
+	order, err = s.repo.ViewOrderDetails(workOrder.OrderNo)
 	if err != nil {
 		return nil, fmt.Errorf("order not found: %w", err)
 	}
 
-	return order, nil
+	return &order, nil
 }
 
-// OrderSparePart places a direct spare part order with one or more suppliers.
-// Each entry in req.Orders must have a description, qty ≥ 1, price_per_unit > 0,
-// at least one supplier, and at least one photo.
+// ---------------------------------------------------------------------------
+// OrderSparePart — orders panels directly from suppliers
+// ---------------------------------------------------------------------------
+
+// OrderSparePart places direct spare part orders with suppliers.
+//
+// req.Orders must be non-empty. Each entry must have:
+//   - order_panel_no, description, qty ≥ 1, price_per_unit > 0
+//   - at least one supplier (all verified to exist)
+//   - at least one photo
 func (s *Service) OrderSparePart(
 	req *RequestOrderSparePartRequest,
 	files []*multipart.FileHeader,
 	uploadFn uploadFnType,
 ) (*models.Order, error) {
-	if req.CreatedBy == 0 {
-		return nil, errors.New("created_by is needed")
-	}
+	// ---- Guards ----
 	if len(req.Orders) == 0 {
-		return nil, errors.New("at least one order entry is required")
-	}
-	if len(req.Photos) != len(files) {
-		return nil, fmt.Errorf("file count mismatch: expected %d files based on photos metadata, got %d", len(req.Photos), len(files))
+		return nil, errors.New("orders must contain at least one entry")
 	}
 
-	// ---- Validate each order entry ----
-	photoPanelNos := make(map[uint]bool)
-	for _, p := range req.Photos {
-		photoPanelNos[p.OrderPanelNo] = true
-	}
-
-	for _, o := range req.Orders {
+	for i, o := range req.Orders {
+		label := fmt.Sprintf("orders[%d]", i)
 		if o.OrderPanelNo == 0 {
-			return nil, errors.New("order_panel_no is required for every order entry")
+			return nil, fmt.Errorf("%s: order_panel_no is required", label)
+		}
+		if o.CreatedBy == 0 {
+			return nil, fmt.Errorf("%s: created_by is required", label)
 		}
 		if o.Description == "" {
-			return nil, fmt.Errorf("description is required for order panel %d", o.OrderPanelNo)
+			return nil, fmt.Errorf("%s (panel %d): description is required", label, o.OrderPanelNo)
 		}
 		if o.Qty == 0 {
-			return nil, fmt.Errorf("qty must be at least 1 for order panel %d", o.OrderPanelNo)
+			return nil, fmt.Errorf("%s (panel %d): qty must be at least 1", label, o.OrderPanelNo)
 		}
 		if o.PricePerUnit == 0 {
-			return nil, fmt.Errorf("price_per_unit must be greater than 0 for order panel %d", o.OrderPanelNo)
+			return nil, fmt.Errorf("%s (panel %d): price_per_unit must be greater than 0", label, o.OrderPanelNo)
 		}
 		if len(o.Suppliers) == 0 {
-			return nil, fmt.Errorf("at least one supplier is required for order panel %d", o.OrderPanelNo)
+			return nil, fmt.Errorf("%s (panel %d): at least one supplier is required", label, o.OrderPanelNo)
 		}
-		if !photoPanelNos[o.OrderPanelNo] {
-			return nil, fmt.Errorf("at least one photo is required for order panel %d", o.OrderPanelNo)
+		if len(o.Photos) == 0 {
+			return nil, fmt.Errorf("%s (panel %d): at least one photo is required", label, o.OrderPanelNo)
 		}
 
-		// Verify each supplier exists
 		for _, supplierID := range o.Suppliers {
 			if _, err := s.repo.FindSupplierFromID(supplierID); err != nil {
-				return nil, fmt.Errorf("supplier %d not found for order panel %d", supplierID, o.OrderPanelNo)
+				return nil, fmt.Errorf("%s (panel %d): supplier %d not found", label, o.OrderPanelNo, supplierID)
 			}
 		}
 	}
@@ -588,44 +661,139 @@ func (s *Service) OrderSparePart(
 	if err != nil {
 		return nil, fmt.Errorf("order panel %d not found: %w", req.Orders[0].OrderPanelNo, err)
 	}
+
 	workOrder, err := s.repo.FindWorkOrderById(firstPanel.WorkOrderNo)
 	if err != nil {
 		return nil, fmt.Errorf("work order not found: %w", err)
 	}
 
-	// ---- Upload photos ----
-	now := time.Now()
-	folder := fmt.Sprintf(
-		"spare-parts/order/%d/%d%02d%02d",
-		workOrder.OrderNo,
-		now.Year(),
-		now.Month(),
-		now.Day(),
-	)
-
-	uploadedPhotos, err := uploadSparePartPhotos(req.Photos, files, folder, uploadFn)
+	orderDetails, err := s.repo.ViewOrderDetails(workOrder.OrderNo)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("order not found: %w", err)
+	}
+	now := time.Now()
+
+	// ---- Upload per-order photos and collect results ----
+	type orderWithPhotos struct {
+		order  OrderDataRequest
+		photos []uploadedSparePartPhoto
+	}
+	ordersWithPhotos := make([]orderWithPhotos, 0, len(req.Orders))
+
+	for _, o := range req.Orders {
+		folder := fmt.Sprintf(
+			"repair/%d/spare/order/%d/%d%02d%02d",
+			workOrder.WorkOrderNo,
+			o.OrderPanelNo,
+			now.Year(),
+			now.Month(),
+			now.Day(),
+		)
+		uploaded, err := uploadPhotoSlice(o.Photos, files, folder, uploadFn)
+		if err != nil {
+			return nil, fmt.Errorf("panel %d: %w", o.OrderPanelNo, err)
+		}
+		ordersWithPhotos = append(ordersWithPhotos, orderWithPhotos{order: o, photos: uploaded})
 	}
 
-	// ---- Persist (transaction) ----
-	// TODO: replace with real model creates once models.SparePartOrder exists.
-	_ = uploadedPhotos
+	err = s.repo.WithTransaction(func(tx *gorm.DB) error {
+		for i, o := range req.Orders {
+			repairHistory := &models.RepairHistory{
+				OrderPanelNo: o.OrderPanelNo,
+				Status:       "ordering",
+				Note:         o.Description,
+				CreatedBy:    &o.CreatedBy,
+			}
 
-	order, err := s.repo.FindOrderById(workOrder.OrderNo)
+			if err := s.repo.CreateRepairHistoryTx(tx, repairHistory); err != nil {
+				return fmt.Errorf("failed to create repair history for order panel %d: %w", o.OrderPanelNo, err)
+			}
+
+			repPhotos := ordersWithPhotos[i]
+			uploadedPhotos := repPhotos.photos
+
+			var finPhotos []models.RepairPhoto
+			for _, uP := range uploadedPhotos {
+				repairPhoto := &models.RepairPhoto{
+					RepairHistoryNo: &repairHistory.RepairHistoryNo,
+					PhotoType:       "replacement",
+					PhotoCaption:    uP.caption,
+					PhotoUrl:        uP.url,
+					CreatedBy:       &o.CreatedBy,
+				}
+
+				finPhotos = append(finPhotos, *repairPhoto)
+			}
+
+			if err := s.repo.CreateRepairPhotosTx(tx, finPhotos); err != nil {
+				return fmt.Errorf("failed to create repair photos for repair history %d : %w", repairHistory.RepairHistoryNo, err)
+			}
+
+			orderRequest := &models.OrderAndRequest{
+				RepairHistoryNo: repairHistory.RepairHistoryNo,
+				SparePartStatus: "pending_response",
+				NeededQty:       o.Qty,
+				Description:     o.Description,
+				CreatedBy:       &o.CreatedBy,
+			}
+
+			if err := s.repo.CreateOrderAndRequestTx(tx, orderRequest); err != nil {
+				return fmt.Errorf("failed to create order and request for repair history %d: %w", repairHistory.RepairHistoryNo, err)
+			}
+
+			sparePartQuote, err := s.repo.GetSparePartQuoteTx(tx, orderRequest.OrderRequestNo)
+
+			if err != nil {
+				return fmt.Errorf("error in finding spare part quote for order request %d: %w", orderRequest.OrderRequestNo, err)
+			}
+
+			if sparePartQuote != nil {
+				sparePartQuote.CurrentRound += 1
+				sparePartQuote.SupplierStatus = "waiting"
+				sparePartQuote.LastModifiedBy = &o.CreatedBy
+				sparePartQuote.RequestedStock = &o.Qty
+				sparePartQuote.RequestedUnitPrice = &o.PricePerUnit
+
+				if err := s.repo.UpdateSparePartQuoteTx(tx, sparePartQuote); err != nil {
+					return fmt.Errorf("failed to update spare part quote for order request %d: %w", orderRequest.OrderRequestNo, err)
+				}
+			} else {
+				sparePartQuote = &models.SparePartQuote{
+					OrderRequestNo:     orderRequest.OrderRequestNo,
+					InsuranceNo:        orderDetails.InsuranceNo,
+					CurrentRound:       0,
+					SupplierStatus:     "waiting",
+					RequestedStock:     &o.Qty,
+					RequestedUnitPrice: &o.PricePerUnit,
+					CreatedBy:          &o.CreatedBy,
+				}
+
+				if err := s.repo.CreateSparePartQuoteTx(tx, sparePartQuote); err != nil {
+					return fmt.Errorf("failed to create spare part quote for order request %d: %w", orderRequest.OrderRequestNo, err)
+				}
+			}
+
+			sparePartNegotiationHistory := &models.SparePartNegotiationHistory{
+				SparePartQuotesNo: sparePartQuote.SparePartQuoteNo,
+				RoundCount:        sparePartQuote.CurrentRound,
+				NewRequestedStock: &o.Qty,
+				NewUnitPrice:      &o.PricePerUnit,
+				Status:            "pending",
+				CreatedBy:         &o.CreatedBy,
+			}
+
+			if err := s.repo.CreateSparePartNegotiationHistoryTx(tx, sparePartNegotiationHistory); err != nil {
+				return fmt.Errorf("failed to create spare part negotiation history for spare part quote %d: %w", sparePartQuote.SparePartQuoteNo, err)
+			}
+		}
+
+		return nil
+	})
+
+	order, err := s.repo.ViewOrderDetails(workOrder.OrderNo)
 	if err != nil {
 		return nil, fmt.Errorf("order not found: %w", err)
 	}
 
-	return order, nil
-}
-
-// GetSparePartsTracking returns all spare part requests/orders for a workshop.
-// TODO: implement once the tracking models are ready.
-func (s *Service) GetSparePartsTracking(workshopID uint) (interface{}, error) {
-	if workshopID == 0 {
-		return nil, errors.New("workshop_no is required")
-	}
-	// Placeholder — return empty list until models are added
-	return []interface{}{}, nil
+	return &order, nil
 }

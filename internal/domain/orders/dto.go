@@ -62,8 +62,7 @@ type CreateWorkOrderRequest struct {
 	WorkOrderDocumentNumber  string              `json:"wo_doc_number"`
 	WorkOrderUrl             string              `json:"wo_url"`
 	OrderPanels              []OrderPanelRequest `json:"order_panels"`
-
-	CreatedBy uint `json:"created_by"`
+	CreatedBy                uint                `json:"created_by"`
 }
 
 type ProposeAdditionalWorkRequest struct {
@@ -137,28 +136,34 @@ type CompleteRepairsRequest struct {
 }
 
 type SparePartPhotoMetadata struct {
-	OrderPanelNo uint   `json:"order_panel_no" binding:"required"`
-	FileIndex    int    `json:"file_index" binding:"required"`
+	FileIndex    int    `json:"file_index"`
 	PhotoCaption string `json:"photo_caption"`
 }
 
+type SparePartPanelRequest struct {
+	OrderPanelNo uint `json:"order_panel_no"`
+	Qty          uint `json:"qty"`
+	PricePerUnit uint `json:"price_per_unit"`
+}
+
 type RequestDataRequest struct {
-	OrderPanelNo uint   `json:"order_panel_no"`
-	Description  string `json:"description"`
-	Qty          uint   `json:"qty"`
+	Description string                   `json:"description"`
+	CreatedBy   uint                     `json:"created_by"`
+	Panels      []SparePartPanelRequest  `json:"panels"`
+	Photos      []SparePartPhotoMetadata `json:"photos"`
 }
 
 type OrderDataRequest struct {
-	OrderPanelNo uint   `json:"order_panel_no"`
-	Description  string `json:"description"`
-	Qty          uint   `json:"qty"`
-	PricePerUnit uint   `json:"price_per_unit"`
-	Suppliers    []uint `json:"suppliers"`
+	OrderPanelNo uint                     `json:"order_panel_no"`
+	Description  string                   `json:"description"`
+	Qty          uint                     `json:"qty"`
+	PricePerUnit uint                     `json:"price_per_unit"`
+	Suppliers    []uint                   `json:"suppliers"`
+	CreatedBy    uint                     `json:"created_by"`
+	Photos       []SparePartPhotoMetadata `json:"photos"`
 }
 
 type RequestOrderSparePartRequest struct {
-	CreatedBy uint                     `json:"created_by"`
-	Requests  []RequestDataRequest     `json:"requests"`
-	Orders    []OrderDataRequest       `json:"orders"`
-	Photos    []SparePartPhotoMetadata `json:"photos"`
+	Requests *RequestDataRequest `json:"requests"`
+	Orders   []OrderDataRequest  `json:"orders"`
 }
