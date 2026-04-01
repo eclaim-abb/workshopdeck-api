@@ -32,4 +32,4 @@ USER $userName
 
 EXPOSE 4124
 
-CMD ["./server"]
+CMD ["./cmd/server"]
