@@ -436,7 +436,6 @@ func (s *Service) RequestSparePart(
 	uploadFn uploadFnType,
 ) (*models.Order, error) {
 	r := req.Requests
-
 	// ---- Guards ----
 	if r == nil {
 		return nil, errors.New("requests field is required")
