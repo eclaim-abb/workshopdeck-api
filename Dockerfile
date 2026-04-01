@@ -28,6 +28,8 @@ RUN addgroup --system --gid $GID goapp && \
 
 COPY --from=builder /app/server .
 
+RUN mkdir -p logs && chown $UID:$GID logs
+
 USER $userName
 
 EXPOSE 4124
