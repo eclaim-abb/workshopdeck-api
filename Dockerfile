@@ -19,16 +19,17 @@ WORKDIR /app
 
 RUN apk add --no-cache ca-certificates tzdata
 
-ARG UID=1001
-ARG GID=1001
+ARG UID=1000
+ARG GID=1000
 ARG userName=ginuser
 
 RUN addgroup --system --gid $GID goapp && \
-    adduser --system --uid $UID --ingroup goapp ginuser
+    adduser --system --uid $UID --ingroup goapp $userName
 
 COPY --from=builder /app/server .
 
-RUN mkdir -p logs && chown $UID:$GID logs
+# Create ALL required directories before switching user
+RUN mkdir -p logs uploads && chown -R $UID:$GID /app
 
 USER $userName
 
