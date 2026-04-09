@@ -16,6 +16,9 @@ services:
       - GIN_MODE=release
     networks:
       - workshopDeckNet
+    volumes:
+      - ${WORKDIR}/logs:/app/logs
+      - ${WORKDIR}/uploads:/app/uploads
 
 networks:
   workshopDeckNet:
