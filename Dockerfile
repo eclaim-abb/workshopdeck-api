@@ -14,24 +14,19 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -ldflags="-w -s" -o server ./cmd/server/
 
 # ========= RUNNER =========
-FROM alpine:3.23 AS runner
+FROM alpine:3.23
 WORKDIR /app
 
 RUN apk add --no-cache ca-certificates tzdata
 
-ARG UID=1000
-ARG GID=1000
-ARG userName=ginuser
+# Copy binary
+COPY --from=builder /app/server /app/server
 
-RUN addgroup --system --gid $GID goapp && \
-    adduser --system --uid $UID --ingroup goapp $userName
+# Create required directories (no need for chown anymore)
+RUN mkdir -p /app/logs /app/uploads
 
-COPY --from=builder /app/server .
-
-# Create ALL required directories before switching user
-RUN mkdir -p logs uploads && chown -R $UID:$GID /app
-
-USER $userName
+# Run as root explicitly (optional, but clear)
+USER 0:0
 
 EXPOSE 4124
 
