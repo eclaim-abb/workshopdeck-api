@@ -13,6 +13,7 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
+// GenerateToken creates a JWT Token with a short expiry
 func GenerateToken(userNo uint, secret string) (string, error) {
 	now := time.Now()
 	claims := Claims{

@@ -67,7 +67,7 @@ func main() {
 
 	r.StaticFS("/api/uploads", http.Dir(cfg.UploadPath))
 
-	// Health check — outside /api so it doesn't require an API key
+	// Health check — outside /api
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "time": time.Now()})
 	})
