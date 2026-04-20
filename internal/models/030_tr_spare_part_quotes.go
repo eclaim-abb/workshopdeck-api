@@ -5,7 +5,7 @@ import "time"
 type SparePartQuote struct {
 	SparePartQuoteNo uint  `gorm:"type:int(11);primaryKey;not null;autoIncrement" json:"spare_part_quote_no"`
 	OrderRequestNo   uint  `gorm:"type:int(11);not null" json:"order_request_no"`
-	SupplierNo       uint  `gorm:"type:int(11);not null" json:"supplier_no"`
+	SupplierNo       *uint `gorm:"type:int(11);null" json:"supplier_no"`
 	InsuranceNo      *uint `gorm:"type:int(11);null" json:"insurance_no"`
 
 	CurrentRound          uint       `gorm:"type:tinyint(3);null" json:"current_round"`

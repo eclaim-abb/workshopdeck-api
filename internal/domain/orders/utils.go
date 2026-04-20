@@ -3,10 +3,13 @@ package orders
 import (
 	"eclaim-workshop-deck-api/internal/domain/panels"
 	"eclaim-workshop-deck-api/internal/models"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"mime/multipart"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
@@ -288,4 +291,28 @@ func AttachFullPhotoURLs(order *models.Order, baseURL string) {
 			}
 		}
 	}
+}
+
+// parseSparePartForm is a shared helper that reads the multipart "data" JSON and the "files[]" slice from a gin context.
+func parseSparePartForm(c *gin.Context) (*RequestOrderSparePartRequest, []*multipart.FileHeader, error) {
+	if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
+		return nil, nil, err
+	}
+
+	dataStr := c.PostForm("data")
+	if dataStr == "" {
+		return nil, nil, errMissingDataField
+	}
+
+	var req RequestOrderSparePartRequest
+	if err := json.Unmarshal([]byte(dataStr), &req); err != nil {
+		return nil, nil, err
+	}
+
+	form, err := c.MultipartForm()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return &req, form.File["files"], nil
 }

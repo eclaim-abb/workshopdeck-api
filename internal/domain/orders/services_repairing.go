@@ -186,7 +186,7 @@ func (s *Service) UpdateOrderPanelRepairStatus(
 		}
 	}
 
-	err = s.repo.WithTransaction(func(tx *gorm.DB) error {
+	if err = s.repo.WithTransaction(func(tx *gorm.DB) error {
 		repairHistory := &models.RepairHistory{
 			OrderPanelNo: req.OrderPanelNo,
 			Status:       req.RepairStatus,
@@ -242,8 +242,14 @@ func (s *Service) UpdateOrderPanelRepairStatus(
 		}
 
 		return nil
-	})
+	}); err != nil {
+		return nil, err
+	}
 
+	order, err = s.repo.ViewOrderDetails(workOrder.OrderNo)
+	if err != nil {
+		return nil, fmt.Errorf("order not found: %w", err)
+	}
 	return &order, nil
 }
 
@@ -456,10 +462,6 @@ func uploadPhotoSlice(
 	return results, nil
 }
 
-// ---------------------------------------------------------------------------
-// RequestSparePart — requests panels from the insurer
-// ---------------------------------------------------------------------------
-
 // RequestSparePart handles spare part requests sent to the insurer.
 //
 // req.Requests must be non-nil and contain at least one panel entry.
@@ -471,6 +473,7 @@ func (s *Service) RequestSparePart(
 	uploadFn uploadFnType,
 ) (*models.Order, error) {
 	r := req.Requests
+
 	// ---- Guards ----
 	if r == nil {
 		return nil, errors.New("requests field is required")
@@ -508,6 +511,7 @@ func (s *Service) RequestSparePart(
 	if err != nil {
 		return nil, fmt.Errorf("order not found: %w", err)
 	}
+
 	// ---- Upload shared photos ----
 	now := time.Now()
 	folder := fmt.Sprintf(
@@ -523,7 +527,8 @@ func (s *Service) RequestSparePart(
 		return nil, err
 	}
 
-	err = s.repo.WithTransaction(func(tx *gorm.DB) error {
+	// ---- Persist ----
+	if err := s.repo.WithTransaction(func(tx *gorm.DB) error {
 		for _, p := range r.Panels {
 			if p.OrderPanelNo == 0 {
 				return errors.New("order_panel_no is required for every panel in requests")
@@ -543,21 +548,19 @@ func (s *Service) RequestSparePart(
 				return fmt.Errorf("failed to create repair history for order panel %d: %w", p.OrderPanelNo, err)
 			}
 
-			var finPhotos []models.RepairPhoto
+			finPhotos := make([]models.RepairPhoto, 0, len(uploadedPhotos))
 			for _, uP := range uploadedPhotos {
-				repairPhoto := &models.RepairPhoto{
+				finPhotos = append(finPhotos, models.RepairPhoto{
 					RepairHistoryNo: &repairHistory.RepairHistoryNo,
 					PhotoType:       "replacement",
 					PhotoCaption:    uP.caption,
 					PhotoUrl:        uP.url,
 					CreatedBy:       &r.CreatedBy,
-				}
-
-				finPhotos = append(finPhotos, *repairPhoto)
+				})
 			}
 
 			if err := s.repo.CreateRepairPhotosTx(tx, finPhotos); err != nil {
-				return fmt.Errorf("failed to create repair photos for repair history %d : %w", repairHistory.RepairHistoryNo, err)
+				return fmt.Errorf("failed to create repair photos for repair history %d: %w", repairHistory.RepairHistoryNo, err)
 			}
 
 			orderRequest := &models.OrderAndRequest{
@@ -573,13 +576,16 @@ func (s *Service) RequestSparePart(
 			}
 
 			sparePartQuote, err := s.repo.GetSparePartQuoteTx(tx, orderRequest.OrderRequestNo)
-
 			if err != nil {
-				return fmt.Errorf("error in finding spare part quote for order request %d: %w", orderRequest.OrderRequestNo, err)
+				return fmt.Errorf("error finding spare part quote for order request %d: %w", orderRequest.OrderRequestNo, err)
 			}
 
+			newCurRound := uint(1)
+
 			if sparePartQuote != nil {
-				sparePartQuote.CurrentRound += 1
+				newCurRound = sparePartQuote.CurrentRound + 1
+
+				sparePartQuote.CurrentRound = newCurRound
 				sparePartQuote.SupplierStatus = "waiting"
 				sparePartQuote.LastModifiedBy = &r.CreatedBy
 				sparePartQuote.RequestedStock = &p.Qty
@@ -592,7 +598,7 @@ func (s *Service) RequestSparePart(
 				sparePartQuote = &models.SparePartQuote{
 					OrderRequestNo:     orderRequest.OrderRequestNo,
 					InsuranceNo:        order.InsuranceNo,
-					CurrentRound:       0,
+					CurrentRound:       newCurRound,
 					SupplierStatus:     "waiting",
 					RequestedStock:     &p.Qty,
 					RequestedUnitPrice: &p.PricePerUnit,
@@ -619,24 +625,17 @@ func (s *Service) RequestSparePart(
 		}
 
 		return nil
-	})
-
-	// ---- Persist ----
-	// TODO: insert into models.SparePartRequest once that model exists.
-	// uploadedPhotos and r.Panels are ready to use.
-	_ = uploadedPhotos
+	}); err != nil {
+		return nil, err
+	}
 
 	order, err = s.repo.ViewOrderDetails(workOrder.OrderNo)
 	if err != nil {
-		return nil, fmt.Errorf("order not found: %w", err)
+		return nil, fmt.Errorf("failed to reload order after transaction: %w", err)
 	}
 
 	return &order, nil
 }
-
-// ---------------------------------------------------------------------------
-// OrderSparePart — orders panels directly from suppliers
-// ---------------------------------------------------------------------------
 
 // OrderSparePart places direct spare part orders with suppliers.
 //
@@ -649,13 +648,13 @@ func (s *Service) OrderSparePart(
 	files []*multipart.FileHeader,
 	uploadFn uploadFnType,
 ) (*models.Order, error) {
-	// ---- Guards ----
 	if len(req.Orders) == 0 {
 		return nil, errors.New("orders must contain at least one entry")
 	}
 
 	for i, o := range req.Orders {
 		label := fmt.Sprintf("orders[%d]", i)
+
 		if o.OrderPanelNo == 0 {
 			return nil, fmt.Errorf("%s: order_panel_no is required", label)
 		}
@@ -705,6 +704,7 @@ func (s *Service) OrderSparePart(
 	if err != nil {
 		return nil, fmt.Errorf("order not found: %w", err)
 	}
+
 	now := time.Now()
 
 	// ---- Upload per-order photos and collect results ----
@@ -730,7 +730,8 @@ func (s *Service) OrderSparePart(
 		ordersWithPhotos = append(ordersWithPhotos, orderWithPhotos{order: o, photos: uploaded})
 	}
 
-	err = s.repo.WithTransaction(func(tx *gorm.DB) error {
+	// ---- Persist ----
+	if err := s.repo.WithTransaction(func(tx *gorm.DB) error {
 		for i, o := range req.Orders {
 			repairHistory := &models.RepairHistory{
 				OrderPanelNo: o.OrderPanelNo,
@@ -743,24 +744,20 @@ func (s *Service) OrderSparePart(
 				return fmt.Errorf("failed to create repair history for order panel %d: %w", o.OrderPanelNo, err)
 			}
 
-			repPhotos := ordersWithPhotos[i]
-			uploadedPhotos := repPhotos.photos
-
-			var finPhotos []models.RepairPhoto
+			uploadedPhotos := ordersWithPhotos[i].photos
+			finPhotos := make([]models.RepairPhoto, 0, len(uploadedPhotos))
 			for _, uP := range uploadedPhotos {
-				repairPhoto := &models.RepairPhoto{
+				finPhotos = append(finPhotos, models.RepairPhoto{
 					RepairHistoryNo: &repairHistory.RepairHistoryNo,
 					PhotoType:       "replacement",
 					PhotoCaption:    uP.caption,
 					PhotoUrl:        uP.url,
 					CreatedBy:       &o.CreatedBy,
-				}
-
-				finPhotos = append(finPhotos, *repairPhoto)
+				})
 			}
 
 			if err := s.repo.CreateRepairPhotosTx(tx, finPhotos); err != nil {
-				return fmt.Errorf("failed to create repair photos for repair history %d : %w", repairHistory.RepairHistoryNo, err)
+				return fmt.Errorf("failed to create repair photos for repair history %d: %w", repairHistory.RepairHistoryNo, err)
 			}
 
 			orderRequest := &models.OrderAndRequest{
@@ -776,13 +773,14 @@ func (s *Service) OrderSparePart(
 			}
 
 			sparePartQuote, err := s.repo.GetSparePartQuoteTx(tx, orderRequest.OrderRequestNo)
-
 			if err != nil {
-				return fmt.Errorf("error in finding spare part quote for order request %d: %w", orderRequest.OrderRequestNo, err)
+				return fmt.Errorf("error finding spare part quote for order request %d: %w", orderRequest.OrderRequestNo, err)
 			}
 
+			newCurRound := uint(1)
 			if sparePartQuote != nil {
-				sparePartQuote.CurrentRound += 1
+				newCurRound = sparePartQuote.CurrentRound + 1
+				sparePartQuote.CurrentRound = newCurRound
 				sparePartQuote.SupplierStatus = "waiting"
 				sparePartQuote.LastModifiedBy = &o.CreatedBy
 				sparePartQuote.RequestedStock = &o.Qty
@@ -795,7 +793,7 @@ func (s *Service) OrderSparePart(
 				sparePartQuote = &models.SparePartQuote{
 					OrderRequestNo:     orderRequest.OrderRequestNo,
 					InsuranceNo:        orderDetails.InsuranceNo,
-					CurrentRound:       0,
+					CurrentRound:       newCurRound,
 					SupplierStatus:     "waiting",
 					RequestedStock:     &o.Qty,
 					RequestedUnitPrice: &o.PricePerUnit,
@@ -822,11 +820,13 @@ func (s *Service) OrderSparePart(
 		}
 
 		return nil
-	})
+	}); err != nil {
+		return nil, err
+	}
 
 	order, err := s.repo.ViewOrderDetails(workOrder.OrderNo)
 	if err != nil {
-		return nil, fmt.Errorf("order not found: %w", err)
+		return nil, fmt.Errorf("failed to reload order after transaction: %w", err)
 	}
 
 	return &order, nil

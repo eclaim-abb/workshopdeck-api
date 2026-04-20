@@ -160,30 +160,6 @@ func (h *Handler) CompleteRepairs(c *gin.Context) {
 	response.Success(c, http.StatusCreated, "repairs completed successfully", gin.H{"order": order})
 }
 
-// parseSparePartForm is a shared helper that reads the multipart "data" JSON and the "files[]" slice from a gin context.
-func parseSparePartForm(c *gin.Context) (*RequestOrderSparePartRequest, []*multipart.FileHeader, error) {
-	if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
-		return nil, nil, err
-	}
-
-	dataStr := c.PostForm("data")
-	if dataStr == "" {
-		return nil, nil, errMissingDataField
-	}
-
-	var req RequestOrderSparePartRequest
-	if err := json.Unmarshal([]byte(dataStr), &req); err != nil {
-		return nil, nil, err
-	}
-
-	form, err := c.MultipartForm()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return &req, form.File["files"], nil
-}
-
 // RequestSpareParts handles the request to create a spare part request for a repairing order, allowing for optional file uploads.
 func (h *Handler) RequestSpareParts(c *gin.Context) {
 	req, files, err := parseSparePartForm(c)
@@ -232,4 +208,25 @@ func (h *Handler) OrderSpareParts(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusCreated, "spare part order created successfully", gin.H{"order": order})
+}
+
+// CancelSupplier handles the cancel supplier request for a spare part order.
+func (h *Handler) CancelSupplier(c *gin.Context) {
+	idStr := c.Param("id")
+	if idStr == "" {
+		response.Error(c, http.StatusBadRequest, "supplier id is needed")
+		return
+	}
+
+	id, err := strconv.ParseInt(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid supplier id format")
+		return
+	}
+
+	_, err = h.service.GetSparePartsTracking(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
 }
