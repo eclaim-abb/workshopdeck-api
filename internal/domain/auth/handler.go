@@ -50,9 +50,6 @@ func (h *Handler) Register(c *gin.Context) {
 
 // Login — Step 1 of 2FA flow.
 // Validates credentials, generates an OTP, and returns a pending response.
-// The OTP is included in the response body ONLY in non-production mode so
-// the front-end can alert() it during development.  In production, remove the
-// `dev_otp` field and send the code by email instead.
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -60,7 +57,7 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	user, otp, err := h.service.Login(req)
+	user, _, err := h.service.Login(req)
 	if err != nil {
 		response.Error(c, http.StatusUnauthorized, err.Error())
 		return
@@ -74,10 +71,6 @@ func (h *Handler) Login(c *gin.Context) {
 		"user_no":             user.UserNo,
 		"message":             "A verification code has been sent. Please enter it to continue.",
 	}
-
-	// ⚠️  DEV ONLY: expose the OTP in the response so the front-end can alert() it.
-	//    Remove / guard with an env check before going to production.
-	resp["dev_otp"] = otp
 
 	c.JSON(http.StatusOK, resp)
 }

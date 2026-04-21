@@ -28,10 +28,6 @@ func createEmailService() *email.EmailService {
 	return email.NewEmailService()
 }
 
-// ---------------------------------------------------------------------------
-// Register
-// ---------------------------------------------------------------------------
-
 func (s *Service) Register(req RegisterRequest) (*models.User, string, string, error) {
 	_, err := s.repo.FindByEmail(req.Email)
 	if err == nil {

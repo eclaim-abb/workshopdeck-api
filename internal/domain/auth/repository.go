@@ -55,8 +55,6 @@ func (r *Repository) FindByEmailInAltDB(email string) (*models.User, error) {
 		return nil, gorm.ErrRecordNotFound
 	}
 	var user models.User
-	// NOTE: Update the Where clause / Preload to match App B's table structure
-	// if it differs from your own schema.
 	err := r.dbAlt.Preload("UserProfile").Where("email = ?", email).First(&user).Error
 	return &user, err
 }
@@ -92,8 +90,4 @@ func (r *Repository) UpdatePassword(userID uint, hashedPassword string) error {
 
 func (r *Repository) UpdateAccount(user *models.User) error {
 	return r.db.Save(user).Error
-}
-
-func (r *Repository) DeleteUserTokens(userNo uint) error {
-	return r.db.Where("user_no = ?", userNo).Delete(&models.UserToken{}).Error
 }
