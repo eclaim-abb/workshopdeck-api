@@ -31,7 +31,7 @@ type Domains struct {
 	OrdersHandler         *orders.Handler
 }
 
-func InitDomains(db *gorm.DB, cfg *config.Config, log *zap.Logger, localStorage *utils.LocalStorage) *Domains {
+func InitDomains(db *gorm.DB, cfg *config.Config, log *zap.Logger, localStorage *utils.LocalStorage, dbAlt *gorm.DB) *Domains {
 	// Auth Demo
 	authDemoRepo := authdemo.NewRepository(db)
 	authDemoService := authdemo.NewService(authDemoRepo, cfg.JWTSecret)
@@ -43,7 +43,7 @@ func InitDomains(db *gorm.DB, cfg *config.Config, log *zap.Logger, localStorage 
 	postsHandler := posts.NewHandler(postsService, log)
 
 	// Auth
-	authRepo := auth.NewRepository(db)
+	authRepo := auth.NewRepository(db, dbAlt)
 	authService := auth.NewService(authRepo, cfg.JWTSecret)
 	authHandler := auth.NewHandler(authService, log)
 

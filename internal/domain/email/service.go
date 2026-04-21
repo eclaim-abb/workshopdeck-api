@@ -229,3 +229,37 @@ func (s *EmailService) SendRoleChange(toEmail, oldRole, newRole, name, modifierN
 
 	return err
 }
+
+func (s *EmailService) Send2FA(toEmail, username, token string) error {
+	tmpl, err := template.ParseFiles("templates/send2fa.html")
+	if err != nil {
+		return err
+	}
+
+	now := time.Now().Local()
+
+	data := struct {
+		Username string
+		Email    string
+		Date     string
+		Time     string
+		Token    string
+		Year     int
+	}{
+		Username: username,
+		Email:    toEmail,
+		Date:     now.Format("02 Jan 2006"),
+		Time:     now.Format("15:04"),
+		Token:    token,
+		Year:     now.Year(),
+	}
+
+	var body bytes.Buffer
+	if err := tmpl.Execute(&body, data); err != nil {
+		return err
+	}
+
+	err = emailSender(body, "Workshop Deck - Your 2FA Token", toEmail)
+
+	return err
+}

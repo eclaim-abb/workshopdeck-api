@@ -34,6 +34,11 @@ func main() {
 		log.Fatal("invalid config: ", err)
 	}
 
+	secondaryCfg := config.LoadSecondaryConfig()
+	if err := secondaryCfg.Validate(); err != nil {
+		log.Fatal("invalid secondary config: ", err)
+	}
+
 	logger, err := config.NewLogger(cfg.Env)
 	if err != nil {
 		log.Fatal("failed to initialize logger: ", err)
@@ -43,13 +48,14 @@ func main() {
 	gin.SetMode(cfg.GinMode)
 
 	db := config.ConnectDB(cfg)
+	secondaryDB := config.ConnectDB(secondaryCfg)
 
 	localStorage, err := utils.NewLocalStorage(cfg.UploadPath, cfg.BaseURL)
 	if err != nil {
 		logger.Fatal("failed to initialize local storage", zap.Error(err))
 	}
 
-	domains := bootstrap.InitDomains(db, cfg, logger, localStorage)
+	domains := bootstrap.InitDomains(db, cfg, logger, localStorage, secondaryDB)
 
 	r := gin.New()
 

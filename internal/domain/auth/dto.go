@@ -47,6 +47,12 @@ type AuthResponse struct {
 	ExpiresIn       int                     `json:"expires_in"` // in seconds
 }
 
+type LoginPendingResponse struct {
+	RequiresTwoFactor bool   `json:"requires_two_factor"`
+	UserNo            uint   `json:"user_no"`
+	Message           string `json:"message"`
+}
+
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token" binding:"required"`
 }
@@ -54,4 +60,9 @@ type RefreshTokenRequest struct {
 type ResetPasswordRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Username string `json:"username" binding:"required"`
+}
+
+type VerifyTwoFactorRequest struct {
+	UserNo uint   `json:"user_no" binding:"required"`
+	Token  string `json:"token" binding:"required"`
 }

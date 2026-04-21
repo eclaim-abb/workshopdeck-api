@@ -1,11 +1,8 @@
 package auth
 
 import (
-	"crypto/rand"
 	"eclaim-workshop-deck-api/internal/common/response"
-	"eclaim-workshop-deck-api/internal/domain/settings"
 	"eclaim-workshop-deck-api/internal/models"
-	"encoding/hex"
 	"net/http"
 	"time"
 
@@ -28,7 +25,7 @@ func NewHandler(service *Service, log *zap.Logger) *Handler {
 	return &Handler{service: service, log: log}
 }
 
-// Register - updated to return both tokens
+// Register — unchanged behaviour, still returns full tokens immediately.
 func (h *Handler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -47,11 +44,15 @@ func (h *Handler) Register(c *gin.Context) {
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		TokenType:    "Bearer",
-		ExpiresIn:    900, // 15 minutes in seconds
+		ExpiresIn:    900,
 	})
 }
 
-// Login - updated to return both tokens
+// Login — Step 1 of 2FA flow.
+// Validates credentials, generates an OTP, and returns a pending response.
+// The OTP is included in the response body ONLY in non-production mode so
+// the front-end can alert() it during development.  In production, remove the
+// `dev_otp` field and send the code by email instead.
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -59,50 +60,63 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	user, accessToken, refreshToken, err := h.service.Login(req)
+	user, otp, err := h.service.Login(req)
 	if err != nil {
 		response.Error(c, http.StatusUnauthorized, err.Error())
 		return
 	}
 
-	userProfileNo := user.UserProfileNo
+	h.log.Info("2FA OTP generated", zap.Uint("user_no", user.UserNo))
 
-	if userProfileNo != nil {
-		settingsRepo := settings.NewRepository(h.service.repo.db)
-		settingsService := settings.NewService(settingsRepo)
-
-		workshopDetails, err := settingsService.GetWorkshopDetailsFromUserProfileNo(*userProfileNo)
-		if err != nil {
-			c.JSON(http.StatusOK, AuthResponse{
-				User:         user,
-				AccessToken:  accessToken,
-				RefreshToken: refreshToken,
-				TokenType:    "Bearer",
-				ExpiresIn:    900,
-			})
-		} else {
-			c.JSON(http.StatusOK, AuthResponse{
-				User:            user,
-				WorkshopDetails: workshopDetails,
-				AccessToken:     accessToken,
-				RefreshToken:    refreshToken,
-				TokenType:       "Bearer",
-				ExpiresIn:       900,
-			})
-		}
-	} else {
-		c.JSON(http.StatusOK, AuthResponse{
-			User:         user,
-			AccessToken:  accessToken,
-			RefreshToken: refreshToken,
-			TokenType:    "Bearer",
-			ExpiresIn:    900, // 15 minutes in seconds
-		})
+	// Build base response.
+	resp := gin.H{
+		"requires_two_factor": true,
+		"user_no":             user.UserNo,
+		"message":             "A verification code has been sent. Please enter it to continue.",
 	}
 
+	// ⚠️  DEV ONLY: expose the OTP in the response so the front-end can alert() it.
+	//    Remove / guard with an env check before going to production.
+	resp["dev_otp"] = otp
+
+	c.JSON(http.StatusOK, resp)
 }
 
-// NEW: RefreshToken handler
+// VerifyTwoFactor — Step 2 of 2FA flow.
+// Accepts the OTP, issues JWT tokens on success.
+func (h *Handler) VerifyTwoFactor(c *gin.Context) {
+	var req VerifyTwoFactorRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	user, accessToken, refreshToken, err := h.service.VerifyTwoFactor(req)
+	if err != nil {
+		response.Error(c, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	// Load workshop details if applicable.
+	var workshopDetails *models.WorkshopDetails
+	if user.UserProfileNo != nil {
+		wd, wdErr := h.service.GetWorkshopDetails(*user.UserProfileNo)
+		if wdErr == nil {
+			workshopDetails = wd
+		}
+	}
+
+	c.JSON(http.StatusOK, AuthResponse{
+		User:            user,
+		WorkshopDetails: workshopDetails,
+		AccessToken:     accessToken,
+		RefreshToken:    refreshToken,
+		TokenType:       "Bearer",
+		ExpiresIn:       900,
+	})
+}
+
+// RefreshToken handler.
 func (h *Handler) RefreshToken(c *gin.Context) {
 	var req RefreshTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -120,7 +134,7 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 		"access_token":  newAccessToken,
 		"refresh_token": newRefreshToken,
 		"token_type":    "Bearer",
-		"expires_in":    900, // 15 minutes in seconds
+		"expires_in":    900,
 	})
 }
 
@@ -227,12 +241,4 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "A new password has been sent to your email.", nil)
-}
-
-func generateRandomKey(length int) (string, error) {
-	bytes := make([]byte, length)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(bytes), nil
 }

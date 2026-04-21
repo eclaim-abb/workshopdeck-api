@@ -75,6 +75,35 @@ func LoadConfig() *Config {
 	}
 }
 
+func LoadSecondaryConfig() *Config {
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("No .env file found, using environment variables")
+	}
+
+	frontendURLsStr := getEnv("FRONTEND_URLS", "http://localhost:3000")
+	frontendURLs := strings.Split(frontendURLsStr, ",")
+
+	for i, url := range frontendURLs {
+		frontendURLs[i] = strings.TrimSpace(url)
+	}
+
+	return &Config{
+		DBHost:       getEnv("DB_ALT_HOST", "localhost"),
+		DBPort:       getEnv("DB_ALT_PORT", "3306"),
+		DBUser:       getEnv("DB_ALT_USER", "root"),
+		DBPassword:   getEnv("DB_ALT_PASSWORD", ""),
+		DBName:       getEnv("DB_ALT_NAME", "workshop_deck_2025"),
+		JWTSecret:    getEnv("JWT_SECRET", "super-secret-jwt-lmao"),
+		Port:         getEnv("PORT", "8080"),
+		FrontendURLs: frontendURLs,
+		Env:          getEnv("APP_ENV", "development"),
+		GinMode:      getEnv("GIN_MODE", "debug"),
+		UploadPath:   getEnv("UPLOAD_PATH", "./uploads"),
+		BaseURL:      getEnv("BASE_URL", "http://localhost:8080"),
+	}
+}
+
 func getEnv(key, defaultValue string) string {
 	value := os.Getenv(key)
 	if value == "" {

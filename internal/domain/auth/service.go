@@ -2,10 +2,12 @@ package auth
 
 import (
 	"eclaim-workshop-deck-api/internal/domain/email"
+	"eclaim-workshop-deck-api/internal/domain/settings"
 	"eclaim-workshop-deck-api/internal/models"
 	"eclaim-workshop-deck-api/pkg/utils"
 	"errors"
 	"fmt"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -23,25 +25,24 @@ func NewService(repo *Repository, jwtSecret string) *Service {
 }
 
 func createEmailService() *email.EmailService {
-	emailService := email.NewEmailService()
-
-	return emailService
+	return email.NewEmailService()
 }
 
+// ---------------------------------------------------------------------------
+// Register
+// ---------------------------------------------------------------------------
+
 func (s *Service) Register(req RegisterRequest) (*models.User, string, string, error) {
-	// Check if user exists
 	_, err := s.repo.FindByEmail(req.Email)
 	if err == nil {
 		return nil, "", "", errors.New("user already exists")
 	}
 
-	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, "", "", err
 	}
 
-	// Create user
 	user := &models.User{
 		RoleNo:    req.RoleNo,
 		UserName:  req.Name,
@@ -58,13 +59,11 @@ func (s *Service) Register(req RegisterRequest) (*models.User, string, string, e
 		return nil, "", "", err
 	}
 
-	// Generate access token
 	accessToken, err := utils.GenerateToken(user.UserNo, s.jwtSecret)
 	if err != nil {
 		return nil, "", "", err
 	}
 
-	// Generate refresh token
 	refreshToken, err := utils.GenerateRefreshToken(user.UserNo, s.jwtSecret)
 	if err != nil {
 		return nil, "", "", err
@@ -73,25 +72,79 @@ func (s *Service) Register(req RegisterRequest) (*models.User, string, string, e
 	return user, accessToken, refreshToken, nil
 }
 
-func (s *Service) Login(req LoginRequest) (*models.User, string, string, error) {
-	// Find user
+func (s *Service) Login(req LoginRequest) (*models.User, string, error) {
+	// 1. Try primary DB first.
 	user, err := s.repo.FindByEmail(req.Email)
 	if err != nil {
-		return nil, "", "", errors.New("invalid credentials")
+		// 2. Fallback to secondary (App B) DB.
+		user, err = s.repo.FindByEmailInAltDB(req.Email)
+		if err != nil {
+			return nil, "", errors.New("invalid credentials")
+		}
 	}
 
-	// Check password
+	// 3. Verify password.
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		return nil, "", "", errors.New("invalid credentials")
+		return nil, "", errors.New("invalid credentials")
 	}
 
-	// Generate access token
+	// 4. Generate a 6-digit OTP.
+	otp, err := generateOTP()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to generate OTP: %w", err)
+	}
+
+	// 5. Hash the OTP before storing.
+	otpHash, err := bcrypt.GenerateFromPassword([]byte(otp), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// 6. Persist token (valid for 5 minutes).
+	expiry := time.Now().Add(5 * time.Minute)
+	tokenRecord := &models.UserToken{
+		UserNo:     user.UserNo,
+		UserToken:  string(otpHash),
+		ExpiryDate: expiry,
+		CreatedBy:  user.UserNo,
+	}
+	if err := s.repo.CreateUserToken(tokenRecord); err != nil {
+		return nil, "", fmt.Errorf("failed to save OTP: %w", err)
+	}
+
+	emailService := createEmailService()
+	if err := emailService.Send2FA(req.Email, user.UserName, otp); err != nil {
+		fmt.Printf("Warning: failed to send 2FA email to %s: %v\n", req.Email, err)
+		// Don't return the error — the OTP is still saved in DB,
+		// and dev_otp in the response is your fallback for now.
+	}
+
+	return user, otp, nil
+}
+
+func (s *Service) VerifyTwoFactor(req VerifyTwoFactorRequest) (*models.User, string, string, error) {
+	// 1. Load the pending token row.
+	tokenRecord, err := s.repo.FindValidToken(req.UserNo)
+	if err != nil {
+		return nil, "", "", errors.New("OTP not found or expired — please login again")
+	}
+
+	// 2. Compare supplied OTP against stored hash.
+	if err := bcrypt.CompareHashAndPassword([]byte(tokenRecord.UserToken), []byte(req.Token)); err != nil {
+		return nil, "", "", errors.New("invalid OTP")
+	}
+
+	// 3. Load the full user record.
+	user, err := s.repo.FindByUserNo(req.UserNo)
+	if err != nil {
+		return nil, "", "", errors.New("user not found")
+	}
+
+	// 4. Issue JWT pair.
 	accessToken, err := utils.GenerateToken(user.UserNo, s.jwtSecret)
 	if err != nil {
 		return nil, "", "", err
 	}
-
-	// Generate refresh token
 	refreshToken, err := utils.GenerateRefreshToken(user.UserNo, s.jwtSecret)
 	if err != nil {
 		return nil, "", "", err
@@ -101,25 +154,21 @@ func (s *Service) Login(req LoginRequest) (*models.User, string, string, error) 
 }
 
 func (s *Service) RefreshToken(req RefreshTokenRequest) (string, string, error) {
-	// Validate refresh token
 	claims, err := utils.ValidateToken(req.RefreshToken, s.jwtSecret)
 	if err != nil {
 		return "", "", errors.New("invalid or expired refresh token")
 	}
 
-	// Verify user still exists
 	_, err = s.repo.FindByUserNo(claims.UserNo)
 	if err != nil {
 		return "", "", errors.New("user not found")
 	}
 
-	// Generate new access token
 	newAccessToken, err := utils.GenerateToken(claims.UserNo, s.jwtSecret)
 	if err != nil {
 		return "", "", err
 	}
 
-	// Generate new refresh token (refresh token rotation - more secure)
 	newRefreshToken, err := utils.GenerateRefreshToken(claims.UserNo, s.jwtSecret)
 	if err != nil {
 		return "", "", err
@@ -131,7 +180,7 @@ func (s *Service) RefreshToken(req RefreshTokenRequest) (string, string, error) 
 func (s *Service) GetUserByEmail(req FindByEmailRequest) (*models.User, error) {
 	user, err := s.repo.FindByEmail(req.Email)
 	if err != nil {
-		return nil, errors.New("User with that email not found!")
+		return nil, errors.New("user with that email not found")
 	}
 	return user, nil
 }
@@ -139,7 +188,7 @@ func (s *Service) GetUserByEmail(req FindByEmailRequest) (*models.User, error) {
 func (s *Service) ChangePassword(req ChangePasswordRequest) (*models.User, error) {
 	user, err := s.repo.FindByEmail(req.Email)
 	if err != nil {
-		return nil, errors.New("User with that email not found!")
+		return nil, errors.New("user with that email not found")
 	}
 
 	if user.UserId != req.Username {
@@ -167,7 +216,7 @@ func (s *Service) ChangePassword(req ChangePasswordRequest) (*models.User, error
 	}
 
 	emailService := createEmailService()
-	err = emailService.SendChangedPassword(req.Email, user.UserName)
+	_ = emailService.SendChangedPassword(req.Email, user.UserName)
 
 	return user, nil
 }
@@ -200,9 +249,8 @@ func (s *Service) UpdateAccount(req UpdateAccountRequest) (*models.User, error) 
 	if err != nil {
 		passwordChanged = false
 		return nil, err
-	} else {
-		passwordChanged = true
 	}
+	passwordChanged = true
 
 	user.Password = string(hashedNewPassword)
 	user.LastModifiedBy = &user.UserNo
@@ -223,36 +271,43 @@ func (s *Service) UpdateAccount(req UpdateAccountRequest) (*models.User, error) 
 		newUID = user.UserId
 	}
 
+	_ = usernameChanged
+
 	if err := s.repo.UpdateAccount(user); err != nil {
 		return nil, err
 	}
 
 	emailService := createEmailService()
-	err = emailService.SendUpdatedAccount(toEmail, user.UserName, newUID, emailChanged, usernameChanged, passwordChanged)
+	_ = emailService.SendUpdatedAccount(toEmail, user.UserName, newUID, emailChanged, usernameChanged, passwordChanged)
 
 	return user, nil
 }
 
 func (s *Service) ResetPassword(req ResetPasswordRequest) error {
-	// 1. Verify user
 	user, err := s.repo.FindByEmailAndUsername(req.Email, req.Username)
 	if err != nil {
 		return fmt.Errorf("user not found")
 	}
 
-	// 2. Generate new random password
 	newPassword, hashed, err := utils.GenerateRandomPassword(32)
+	if err != nil {
+		return fmt.Errorf("failed to generate password: %v", err)
+	}
 
-	// 3. Update user’s password in DB
 	if err := s.repo.UpdatePassword(user.UserNo, string(hashed)); err != nil {
 		return fmt.Errorf("failed to update password: %v", err)
 	}
 
 	emailService := email.NewEmailService()
-	// 4. Send email
 	if err := emailService.SendResetEmail(req.Email, req.Username, newPassword); err != nil {
 		return fmt.Errorf("failed to send email: %v", err)
 	}
 
 	return nil
+}
+
+func (s *Service) GetWorkshopDetails(userProfileNo uint) (*models.WorkshopDetails, error) {
+	settingsRepo := settings.NewRepository(s.repo.db)
+	settingsService := settings.NewService(settingsRepo)
+	return settingsService.GetWorkshopDetailsFromUserProfileNo(userProfileNo)
 }

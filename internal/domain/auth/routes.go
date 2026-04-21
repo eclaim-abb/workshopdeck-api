@@ -10,6 +10,7 @@ func RegisterRoutes(router *gin.RouterGroup, handler *Handler, authMiddleware gi
 
 		auth.POST("/register", handler.Register)
 		auth.POST("/login", handler.Login)
+		auth.POST("/verify-2fa", handler.VerifyTwoFactor)
 		auth.POST("/refresh", handler.RefreshToken)
 		auth.POST("/reset-password", handler.ResetPassword)
 		auth.POST("/generate-api-key", handler.GenerateAPIKey)

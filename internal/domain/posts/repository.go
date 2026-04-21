@@ -3,7 +3,8 @@ package posts
 import "gorm.io/gorm"
 
 type Repository struct {
-	db *gorm.DB
+	db    *gorm.DB
+	dbAlt *gorm.DB
 }
 
 func NewRepository(db *gorm.DB) *Repository {

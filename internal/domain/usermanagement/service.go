@@ -50,7 +50,7 @@ func (s *Service) AddUser(id uint, req AddUserRequest) (*models.User, error) {
 		CreatedBy:     &req.CreatedBy,
 		Password:      pwd,
 	}
-	authRepo := auth.NewRepository(s.repo.db)
+	authRepo := auth.NewRepository(s.repo.db, nil)
 	err = authRepo.Create(user)
 	if err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ func (s *Service) GetRoles(roleType string) ([]models.Role, error) {
 }
 
 func (s *Service) UpdateUserRole(userNo uint, req ChangeUserRoleRequest) (*models.User, error) {
-	userRepo := auth.NewRepository(s.repo.db)
+	userRepo := auth.NewRepository(s.repo.db, nil)
 
 	user, err := userRepo.FindByUserNo(userNo)
 	if err != nil {
@@ -131,7 +131,7 @@ func (s *Service) UpdateUserRole(userNo uint, req ChangeUserRoleRequest) (*model
 }
 
 func (s *Service) DeleteUser(userNo uint, req DeleteUserRequest) (*models.User, error) {
-	userRepo := auth.NewRepository(s.repo.db)
+	userRepo := auth.NewRepository(s.repo.db, nil)
 
 	user, err := userRepo.FindByUserNo(userNo)
 	if err != nil {
