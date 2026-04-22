@@ -9,6 +9,7 @@ services:
       - .env
     environment:
       - GIN_MODE=release
+      - TZ=Asia/Jakarta
     restart: always
     networks:
       - workshopDeckNet

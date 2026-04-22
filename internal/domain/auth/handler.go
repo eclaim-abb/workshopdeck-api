@@ -75,7 +75,6 @@ func (h *Handler) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-// VerifyTwoFactor — Step 2 of 2FA flow.
 // Accepts the OTP, issues JWT tokens on success.
 func (h *Handler) VerifyTwoFactor(c *gin.Context) {
 	var req VerifyTwoFactorRequest
@@ -86,7 +85,7 @@ func (h *Handler) VerifyTwoFactor(c *gin.Context) {
 
 	user, accessToken, refreshToken, err := h.service.VerifyTwoFactor(req)
 	if err != nil {
-		response.Error(c, http.StatusUnauthorized, err.Error())
+		response.Error(c, http.StatusUnauthorized, "Verification failed (401): Token is invalid or expired")
 		return
 	}
 

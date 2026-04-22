@@ -19,6 +19,7 @@ WORKDIR /app
 
 RUN apk add --no-cache ca-certificates tzdata
 
+ENV TZ=Asia/Jakarta
 # Copy binary
 COPY --from=builder /app/server /app/server
 
