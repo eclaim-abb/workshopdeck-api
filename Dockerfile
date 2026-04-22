@@ -19,9 +19,14 @@ WORKDIR /app
 
 RUN apk add --no-cache ca-certificates tzdata
 
+# Set timezone to Jakarta (UTC +7)
 ENV TZ=Asia/Jakarta
+
 # Copy binary
 COPY --from=builder /app/server /app/server
+
+# Copy templates
+COPY --from=builder /app/templates /app/templates
 
 # Create required directories (no need for chown anymore)
 RUN mkdir -p /app/logs /app/uploads
