@@ -263,3 +263,39 @@ func (s *EmailService) Send2FA(toEmail, username, token string) error {
 
 	return err
 }
+
+func (s *EmailService) SendPickupReminder(toEmail, clientName, vehicleBrandName, vehicleSeriesName, vehicleLicensePlate, vehicleChassisNo string) error {
+	tmpl, err := template.ParseFiles("templates/pickup_remind.html")
+	if err != nil {
+		return err
+	}
+
+	now := time.Now().Local()
+
+	data := struct {
+		ClientName          string
+		VehicleBrand        string
+		VehicleSeries       string
+		VehicleLicensePlate string
+		VehicleChassisNo    string
+		Time                string
+		Year                int
+	}{
+		ClientName:          clientName,
+		VehicleBrand:        vehicleBrandName,
+		VehicleSeries:       vehicleSeriesName,
+		VehicleLicensePlate: vehicleLicensePlate,
+		VehicleChassisNo:    vehicleChassisNo,
+		Time:                now.Format("15:04"),
+		Year:                now.Year(),
+	}
+
+	var body bytes.Buffer
+	if err := tmpl.Execute(&body, data); err != nil {
+		return err
+	}
+
+	err = emailSender(body, "Workshop Deck - Vehicle Ready for Pickup", toEmail)
+
+	return err
+}

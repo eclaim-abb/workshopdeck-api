@@ -1,12 +1,17 @@
 package orders
 
 import (
+	"eclaim-workshop-deck-api/internal/domain/email"
 	"eclaim-workshop-deck-api/internal/models"
 	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
 )
+
+func createEmailService() *email.EmailService {
+	return email.NewEmailService()
+}
 
 func (s *Service) GetRepairedOrders(workshopId uint) ([]models.Order, error) {
 	return s.repo.GetRepairedOrders(workshopId)
@@ -82,6 +87,7 @@ func (s *Service) RemindPickup(req RemindPickupRequest) ([]models.PickupReminder
 		return nil, errors.New("next remind pickup date is required")
 	}
 
+	firstOrderNo := req.OrderNos[0]
 	var pickupReminders []models.PickupReminder
 	err := s.repo.WithTransaction(func(tx *gorm.DB) error {
 		for _, o := range req.OrderNos {
@@ -104,6 +110,25 @@ func (s *Service) RemindPickup(req RemindPickupRequest) ([]models.PickupReminder
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to remind pickup:", err)
+	}
+
+	firstOrder, err := s.repo.FindOrderById(firstOrderNo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find order %d: %w", firstOrderNo, err)
+	}
+
+	client := firstOrder.Client
+
+	emailService := createEmailService()
+	if err := emailService.SendPickupReminder(
+		client.ClientEmail,
+		client.ClientName,
+		client.VehicleBrandName,
+		client.VehicleSeriesName,
+		client.VehicleLicensePlate,
+		client.VehicleChassisNo,
+	); err != nil {
+		fmt.Printf("Warning: failed to send pickup reminder email to %s: %v\n", client.ClientEmail, err)
 	}
 
 	return pickupReminders, nil
