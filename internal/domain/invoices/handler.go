@@ -68,7 +68,7 @@ func (h *Handler) CreateInvoice(c *gin.Context) {
 		fileHeader = fh
 	}
 
-	// ── 4. Delegate to service ────────────────────────────────────────────────
+	// ── 3. Delegate to service ────────────────────────────────────────────────
 	invoice, err := h.service.CreateInvoice(req, fileHeader, uploadFn)
 	if err != nil {
 		h.log.Error("CreateInvoice: service error", zap.Error(err))

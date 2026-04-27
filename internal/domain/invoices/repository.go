@@ -2,6 +2,11 @@ package invoices
 
 import (
 	"eclaim-workshop-deck-api/internal/models"
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -36,15 +41,44 @@ func (r *Repository) CreateInvoiceWithInstallments(
 	installments []models.InvoiceInstallment,
 	orderNos []uint,
 ) (*models.Invoice, error) {
-
 	err := r.db.Transaction(func(tx *gorm.DB) error {
 
-		// 1. Create the invoice record.
+		// ── 1. Generate doc number inside the transaction (race-safe) ─────────
+		now := time.Now()
+		prefix := fmt.Sprintf("INV/%d/%02d/", now.Year(), int(now.Month()))
+
+		var last models.Invoice
+		err := tx.Set("gorm:query_option", "FOR UPDATE").
+			Where("invoice_doc_number LIKE ?", prefix+"%").
+			Order("invoice_doc_number DESC").
+			First(&last).Error
+
+		var nextSeq int
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			nextSeq = 1
+		} else if err != nil {
+			return fmt.Errorf("failed to fetch last invoice sequence: %w", err)
+		} else {
+			parts := strings.Split(last.InvoiceDocNumber, "/")
+			if len(parts) == 4 {
+				if seq, parseErr := strconv.Atoi(parts[3]); parseErr == nil {
+					nextSeq = seq + 1
+				}
+			}
+			if nextSeq == 0 {
+				nextSeq = 1 // fallback if parse fails
+			}
+		}
+
+		invoice.InvoiceDocNumber = fmt.Sprintf("INV/%d/%02d/%06d",
+			now.Year(), int(now.Month()), nextSeq)
+
+		// ── 2. Create the invoice record ──────────────────────────────────────
 		if err := tx.Create(invoice).Error; err != nil {
 			return err
 		}
 
-		// 2. Insert installments (if any).
+		// ── 3. Insert installments (if any) ───────────────────────────────────
 		if len(installments) > 0 {
 			for i := range installments {
 				installments[i].InvoiceNo = invoice.InvoiceNo
@@ -54,7 +88,7 @@ func (r *Repository) CreateInvoiceWithInstallments(
 			}
 		}
 
-		// 3. Link orders to the new invoice.
+		// ── 4. Link orders to the new invoice ─────────────────────────────────
 		if err := tx.Model(&models.Order{}).
 			Where("order_no IN ?", orderNos).
 			Update("invoice_no", invoice.InvoiceNo).Error; err != nil {
@@ -68,7 +102,7 @@ func (r *Repository) CreateInvoiceWithInstallments(
 		return nil, err
 	}
 
-	// 4. Reload with associations.
+	// ── 5. Reload with associations ───────────────────────────────────────────
 	var created models.Invoice
 	if err := r.db.
 		Preload("InvoiceInstallments").

@@ -8,6 +8,7 @@ type Delivery struct {
 	DeliveryId       string    `gorm:"type:varchar(35);not null"`
 	LastRepairedDate time.Time `gorm:"type:datetime;not null" json:"last_repairerd_date"`
 	DeliveryStatus   string    `gorm:"type:enum('pending_pickup','delivered');null"`
+	PhotoUrl         string    `gorm:"type:varchar(255);not null" json:"photo_url"`
 	CreatedBy        *uint     `gorm:"column:created_by;type:int(11);null" json:"created_by"`
 	CreatedAt        time.Time `gorm:"column:created_date;type:datetime;default:CURRENT_TIMESTAMP" json:"created_date"`
 	UpdatedAt        time.Time `gorm:"column:last_modified_date;null;type:datetime;default:CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP" json:"last_modified_date"`

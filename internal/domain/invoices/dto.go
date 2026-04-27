@@ -12,12 +12,12 @@ type InstallmentDTO struct {
 // multipart form. The actual invoice file (if any) is read separately via
 // c.FormFile("invoice_file") in the handler.
 type CreateInvoiceRequest struct {
-	OrderNos           []uint           `json:"order_nos"            binding:"required,min=1"`
-	ClientNo           uint             `json:"client_no"            binding:"required"`
-	DeliveryNo         uint             `json:"delivery_no"          binding:"required"`
-	PaymentAmount      uint             `json:"payment_amount"       binding:"required,min=1"`
-	DueDate            string           `json:"due_date"` // required when Installments is empty
-	InvoiceDocNumber   string           `json:"invoice_doc_number"   binding:"required"`
+	OrderNos      []uint `json:"order_nos"            binding:"required,min=1"`
+	ClientNo      uint   `json:"client_no"            binding:"required"`
+	DeliveryNo    uint   `json:"delivery_no"          binding:"required"`
+	PaymentAmount uint   `json:"payment_amount"       binding:"required,min=1"`
+	DueDate       string `json:"due_date"` // required when Installments is empty
+	// InvoiceDocNumber   string           `json:"invoice_doc_number"   binding:"required"`
 	ReferenceDocNumber string           `json:"reference_doc_number"`
 	IsSystemGenerated  bool             `json:"is_system_generated"`
 	Installments       []InstallmentDTO `json:"installments"` // empty = single payment

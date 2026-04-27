@@ -134,6 +134,7 @@ func (s *Service) RemindPickup(req RemindPickupRequest) ([]models.PickupReminder
 	return pickupReminders, nil
 }
 
-func (s *Service) SetAsDelivered() {
+func (s *Service) SetAsDelivered(req SetAsDeliveredRequest) (*models.Delivery, error) {
 
+	return nil, nil
 }

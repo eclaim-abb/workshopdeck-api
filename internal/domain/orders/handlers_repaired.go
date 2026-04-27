@@ -74,5 +74,17 @@ func (h *Handler) RemindPickup(c *gin.Context) {
 
 // SetAsDelivered marks a repaired order as delivered, indicating that the customer has picked up the vehicle.
 func (h *Handler) SetAsDelivered(c *gin.Context) {
+	var req SetAsDeliveredRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
 
+	delivery, err := h.service.SetAsDelivered(req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Delivery created successfully", gin.H{"delivery": delivery})
 }

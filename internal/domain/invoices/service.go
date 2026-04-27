@@ -135,7 +135,7 @@ func (s *Service) CreateInvoice(
 	// ── 4. Build the Invoice model ────────────────────────────────────────────
 	invoice := &models.Invoice{
 		ClientNo:           req.ClientNo,
-		InvoiceDocNumber:   req.InvoiceDocNumber,
+		InvoiceDocNumber:   "",
 		ReferenceDocNumber: req.ReferenceDocNumber,
 		PaymentStatus:      "unpaid",
 		PaymentAmount:      req.PaymentAmount,

@@ -126,6 +126,11 @@ type RemindPickupRequest struct {
 	NextRemindDate time.Time `json:"next_remind_date"`
 }
 
+type SetAsDeliveredRequest struct {
+	InvoiceNos     []uint `json:"invoice_nos"`
+	LastModifiedBy uint   `json:"last_modified_by"`
+}
+
 type ApproveAdditionalProposalRequest struct {
 	CancelNegotiationRequest
 	ETA          time.Time `json:"eta"`
