@@ -276,6 +276,7 @@ func (s *Service) forwardOrderPanelProposalTx(tx *gorm.DB, orderPanelNo, lastMod
 	return lockedPanel, nil
 }
 
+// AttachFullPhotoURLs modifies the returned order by attaching the base URL to the file paths
 func AttachFullPhotoURLs(order *models.Order, baseURL string) {
 	for wi := range order.WorkOrders {
 		for pi := range order.WorkOrders[wi].OrderPanels {
@@ -294,7 +295,7 @@ func AttachFullPhotoURLs(order *models.Order, baseURL string) {
 
 	invoice := order.Invoice
 
-	if invoice.InvoiceFileUrl != "" {
+	if invoice != nil && invoice.InvoiceFileUrl != "" {
 		order.Invoice.InvoiceFileUrl = baseURL + order.Invoice.InvoiceFileUrl
 	}
 }

@@ -66,7 +66,7 @@ func RegisterRoutes(router *gin.RouterGroup, handler *Handler, authMiddleware gi
 			repairedOrders := orders.Group("/repaired")
 			{
 				repairedOrders.GET("", handler.GetRepairedOrders)
-				repairedOrders.POST("/set-unfinished", handler.SetRepairedAsUnfinished)
+				repairedOrders.PUT("/set-unfinished", handler.SetRepairedAsUnfinished)
 				repairedOrders.POST("/remind", handler.RemindPickup)
 				repairedOrders.POST("/delivered", handler.SetAsDelivered)
 			}

@@ -1,6 +1,10 @@
 package orders
 
-import "eclaim-workshop-deck-api/internal/models"
+import (
+	"eclaim-workshop-deck-api/internal/models"
+
+	"gorm.io/gorm"
+)
 
 func (r *Repository) GetRepairedOrders(id uint) ([]models.Order, error) {
 	var orders []models.Order
@@ -34,9 +38,14 @@ func (r *Repository) GetRepairedOrders(id uint) ([]models.Order, error) {
 		Preload("Invoice.Client.City").
 		Preload("Client").
 		Preload("Client.City").
+		Preload("PickupReminders").
 		Where("tr_orders.is_locked = ? AND tr_orders.workshop_no = ? AND tr_orders.status = ?", 0, id, "repaired").
 		Order("tr_orders.order_no").
 		Find(&orders).Error
 
 	return orders, err
+}
+
+func (r *Repository) CreatePickupReminderTx(tx *gorm.DB, pickupReminder *models.PickupReminder) error {
+	return tx.Create(pickupReminder).Error
 }

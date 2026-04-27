@@ -49,6 +49,7 @@ func (r *Repository) GetOrders() ([]models.Order, error) {
 		Preload("Workshop").
 		Preload("Insurance").
 		Preload("Client").
+		Preload("PickupReminders").
 		Where("tr_orders.is_locked = ?", 0).
 		Order("tr_orders.order_no").
 		Find(&orders).Error
@@ -109,11 +110,12 @@ func (r *Repository) GetLatestRepairHistory(db *gorm.DB, orderPanelNo uint) (*mo
 	var history models.RepairHistory
 
 	err := db.Where("order_panel_no = ? AND is_locked = 0", orderPanelNo).
+		Order("created_date DESC").
 		First(&history).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil // No negotiation history yet
+			return nil, nil // No repair history yet
 		}
 		return nil, err
 	}
@@ -187,6 +189,7 @@ func (r *Repository) ViewOrderDetails(id uint) (models.Order, error) {
 		Preload("WorkOrders.OrderPanels.RepairHistory.OrdersAndRequests").
 		Preload("WorkOrders.OrderPanels.RepairHistory.OrdersAndRequests.SparePartQuotes").
 		Preload("WorkOrders.OrderPanels.RepairHistory.OrdersAndRequests.SparePartQuotes.SparePartNegotiationHistory").
+		Preload("PickupReminders").
 		Where("tr_orders.is_locked = ? AND tr_orders.order_no = ?", 0, id).
 		Order("tr_orders.order_no").
 		Find(&order).Error
@@ -217,6 +220,7 @@ func (r *Repository) FindOrderById(id uint) (*models.Order, error) {
 		Preload("Insurance").
 		Preload("Invoice").
 		Preload("Client").
+		Preload("PickupReminders").
 		Preload("CreatedByUser").
 		Preload("LastModifiedByUser").
 		Where("order_no = ? AND is_locked = 0", id).

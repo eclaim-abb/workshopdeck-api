@@ -335,8 +335,9 @@ func (s *Service) CompleteRepairs(
 
 		latestHistory, err := s.repo.GetLatestRepairHistory(s.repo.db, op.OrderPanelNo)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get latest repair history for panel %d: %w", op.OrderPanelNo, err)
+			return nil, fmt.Errorf("error when getting the latest repair history for panel %d: %w", op.OrderPanelNo, err)
 		}
+
 		if latestHistory != nil && latestHistory.Status == "completed" {
 			continue
 		}

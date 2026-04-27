@@ -23,13 +23,14 @@ type Order struct {
 	UpdatedAt      time.Time `gorm:"column:last_modified_date;null;type:datetime;default:CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP" json:"last_modified_date"`
 	LastModifiedBy *uint     `gorm:"column:last_modified_by;null;type:int(11)" json:"last_modified_by"`
 
-	Workshop           *UserProfile `gorm:"foreignKey:WorkshopNo;references:UserProfileNo" json:"workshop,omitempty"`
-	Insurance          *UserProfile `gorm:"foreignKey:InsuranceNo;references:UserProfileNo" json:"insurance,omitempty"`
-	Invoice            *Invoice     `gorm:"foreignKey:InvoiceNo;references:InvoiceNo" json:"invoice,omitempty"`
-	Client             *Client      `gorm:"foreignKey:ClientNo;references:ClientNo" json:"client,omitempty"`
-	CreatedByUser      *User        `gorm:"foreignKey:CreatedBy;references:UserNo" json:"created_by_user,omitempty"`
-	LastModifiedByUser *User        `gorm:"foreignKey:LastModifiedBy;references:UserNo" json:"last_modified_by_user,omitempty"`
-	WorkOrders         []WorkOrder  `gorm:"foreignKey:OrderNo;references:OrderNo;" json:"work_orders"`
+	Workshop           *UserProfile     `gorm:"foreignKey:WorkshopNo;references:UserProfileNo" json:"workshop,omitempty"`
+	Insurance          *UserProfile     `gorm:"foreignKey:InsuranceNo;references:UserProfileNo" json:"insurance,omitempty"`
+	Invoice            *Invoice         `gorm:"foreignKey:InvoiceNo;references:InvoiceNo" json:"invoice,omitempty"`
+	Client             *Client          `gorm:"foreignKey:ClientNo;references:ClientNo" json:"client,omitempty"`
+	CreatedByUser      *User            `gorm:"foreignKey:CreatedBy;references:UserNo" json:"created_by_user,omitempty"`
+	LastModifiedByUser *User            `gorm:"foreignKey:LastModifiedBy;references:UserNo" json:"last_modified_by_user,omitempty"`
+	WorkOrders         []WorkOrder      `gorm:"foreignKey:OrderNo;references:OrderNo;" json:"work_orders"`
+	PickupReminders    []PickupReminder `gorm:"foreignKey:OrderNo;references:OrderNo;" json:"pickup_reminders"`
 }
 
 func (Order) TableName() string {
