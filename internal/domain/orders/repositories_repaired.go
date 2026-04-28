@@ -23,16 +23,6 @@ func (r *Repository) GetRepairedOrders(id uint) ([]models.Order, error) {
 		Preload("WorkOrders.OrderPanels.InsurerMeasurement").
 		Preload("WorkOrders.OrderPanels.WorkshopMeasurement").
 		Preload("WorkOrders.OrderPanels.FinalMeasurement").
-		Preload("WorkOrders.OrderPanels.RepairHistory").
-		Preload("WorkOrders.OrderPanels.RepairHistory.CreatedByUser").
-		Preload("WorkOrders.OrderPanels.NegotiationHistory").
-		Preload("WorkOrders.OrderPanels.NegotiationHistory.CreatedByUser").
-		Preload("WorkOrders.OrderPanels.NegotiationHistory.OldMeasurement").
-		Preload("WorkOrders.OrderPanels.NegotiationHistory.ProposedMeasurement").
-		Preload("WorkOrders.OrderPanels.RepairHistory.RepairPhotos").
-		Preload("WorkOrders.OrderPanels.RepairHistory.OrdersAndRequests").
-		Preload("WorkOrders.OrderPanels.RepairHistory.OrdersAndRequests.SparePartQuotes").
-		Preload("WorkOrders.OrderPanels.RepairHistory.OrdersAndRequests.SparePartQuotes.SparePartNegotiationHistory").
 		Preload("Invoice").
 		Preload("Invoice.Client").
 		Preload("Invoice.PaymentRecords").

@@ -5,7 +5,7 @@ import "time"
 type Delivery struct {
 	DeliveryNo       uint      `gorm:"type:int(11);primaryKey;autoIncrement;not null" json:"delivery_no"`
 	ClientNo         uint      `gorm:"type:int(11);not null" json:"client_no"`
-	DeliveryId       string    `gorm:"type:varchar(35);not null"`
+	DeliveryId       string    `gorm:"type:varchar(35);not null" json:"delivery_id"`
 	LastRepairedDate time.Time `gorm:"type:datetime;not null" json:"last_repairerd_date"`
 	DeliveredAt      time.Time `gorm:"date;not null" json:"delivered_at"`
 	PhotoUrl         string    `gorm:"type:varchar(255);not null" json:"photo_url"`
