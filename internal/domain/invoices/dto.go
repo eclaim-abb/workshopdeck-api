@@ -24,9 +24,10 @@ type CreateInvoiceRequest struct {
 }
 
 type AddPaymentRequest struct {
-	InvoiceNo     uint  `json:"invoice_no" binding:"required"`
-	InstallmentNo *uint `json:"installment_no"`
-	IsFullPayment bool  `json:"is_full_payment" binding:"required"`
-	PaymentAmount uint  `json:"payment_amount" binding:"required"`
-	CreatedBy     uint  `json:"created_by" binding:"required"`
+	InvoiceNo     uint   `json:"invoice_no" binding:"required"`
+	InstallmentNo *uint  `json:"installment_no"`
+	IsFullPayment bool   `json:"is_full_payment" binding:"required"`
+	PaymentAmount uint   `json:"payment_amount" binding:"required"`
+	PaidDate      string `json:"paid_date" binding:"required"`
+	CreatedBy     uint   `json:"created_by" binding:"required"`
 }

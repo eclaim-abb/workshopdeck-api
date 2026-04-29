@@ -174,6 +174,10 @@ func (s *Service) CreatePayment(
 		return nil, fmt.Errorf("created_by is required")
 	}
 
+	if req.PaidDate == "" {
+		return nil, fmt.Errorf("paid date is required")
+	}
+
 	createdBy := req.CreatedBy
 	now := time.Now().Local()
 
@@ -244,10 +248,11 @@ func (s *Service) CreatePayment(
 		return nil, fmt.Errorf("failed to upload invoice file: %w", err)
 	}
 
+	paidDate, err := time.Parse("2006-01-02", req.PaidDate)
 	paymentRecord := &models.PaymentRecord{
 		InvoiceNo:       req.InvoiceNo,
 		PaidAmount:      req.PaymentAmount,
-		PaidDate:        now,
+		PaidDate:        paidDate,
 		CreatedBy:       &req.CreatedBy,
 		CreatedAt:       now,
 		PaymentProofUrl: paymentFileURL,
@@ -266,7 +271,7 @@ func (s *Service) CreatePayment(
 		if req.IsFullPayment {
 			if req.InstallmentNo != nil {
 				invoiceInstallment.IsPaid = true
-				invoiceInstallment.PaidDate = now
+				invoiceInstallment.PaidDate = paidDate
 				invoiceInstallment.LastModifiedBy = &req.CreatedBy
 
 				err = s.repo.UpdateInstallmentTx(tx, invoiceInstallment)
