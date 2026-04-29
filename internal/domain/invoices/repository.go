@@ -19,6 +19,8 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
+func (r *Repository) GetDB() *gorm.DB { return r.db }
+
 // FindOrdersByNos fetches the orders matching the given order numbers.
 func (r *Repository) FindOrdersByNos(orderNos []uint) ([]models.Order, error) {
 	var orders []models.Order
@@ -28,6 +30,58 @@ func (r *Repository) FindOrdersByNos(orderNos []uint) ([]models.Order, error) {
 		return nil, err
 	}
 	return orders, nil
+}
+
+// GetOrdersFromWorkshopNo retrieves all orders and their details based on the workshop_no.
+func (r *Repository) GetOrdersFromWorkshopNo(workshopNo uint) ([]models.Order, error) {
+	var orders []models.Order
+
+	err := r.db.
+		Where("tr_orders.is_locked = ? AND tr_orders.workshop_no = ?", 0, workshopNo).
+		Order("tr_orders.order_no").
+		Find(&orders).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+	}
+
+	return orders, err
+}
+
+// GetInvoices gets invoices from an array of invoice nos
+func (r *Repository) GetInvoices(invoiceNos []uint) ([]models.Invoice, error) {
+	var invoices []models.Invoice
+	if err := r.db.
+		Where("invoice_no IN ?", invoiceNos).
+		Find(&invoices).Error; err != nil {
+		return nil, err
+	}
+	return invoices, nil
+}
+
+func (r *Repository) FindInvoiceById(invoiceNo uint) (*models.Invoice, error) {
+	var invoice models.Invoice
+	if err := r.db.
+		Preload("InvoiceInstallments").
+		Preload("InvoiceInstallments.PaymentRecords").
+		Preload("PaymentRecords").
+		Where("invoice_no = ?", invoiceNo).
+		Find(&invoice).Error; err != nil {
+		return nil, err
+	}
+	return &invoice, nil
+}
+
+func (r *Repository) FindInstallmentById(installmentNo uint) (*models.InvoiceInstallment, error) {
+	var installment models.InvoiceInstallment
+	if err := r.db.
+		Where("installment_no = ?", installmentNo).
+		Find(&installment).Error; err != nil {
+		return nil, err
+	}
+	return &installment, nil
 }
 
 // CreateInvoiceWithInstallments runs everything in a single transaction:
@@ -114,6 +168,17 @@ func (r *Repository) CreateInvoiceWithInstallments(
 	return &created, nil
 }
 
+// CreatePaymentRecord creates payment record with transaction
+func (r *Repository) CreatePaymentRecord(tx *gorm.DB, paymentRecord *models.PaymentRecord) error {
+	return tx.Create(paymentRecord).Error
+}
+
+// UpdateInvoiceTx updates invoice with transaction
 func (r *Repository) UpdateInvoiceTx(tx *gorm.DB, invoice *models.Invoice) error {
 	return tx.Save(invoice).Error
+}
+
+// UpdateInstallmentTx updates installment with transaction
+func (r *Repository) UpdateInstallmentTx(tx *gorm.DB, installment *models.InvoiceInstallment) error {
+	return tx.Save(installment).Error
 }

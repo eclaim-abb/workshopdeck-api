@@ -2,6 +2,7 @@ package orders
 
 import (
 	"eclaim-workshop-deck-api/internal/models"
+	"eclaim-workshop-deck-api/pkg/utils"
 	"errors"
 	"fmt"
 	"mime/multipart"
@@ -286,7 +287,7 @@ func (s *Service) ProposeAdditionalWork(
 		}
 	}
 
-	err = s.repo.WithTransaction(func(tx *gorm.DB) error {
+	err = utils.WithTransaction(s.repo, func(tx *gorm.DB) error {
 		// Create panels
 		if err := s.repo.CreateOrderPanelsBatchTx(tx, allPanels); err != nil {
 			return fmt.Errorf("failed to create order panels: %w", err)

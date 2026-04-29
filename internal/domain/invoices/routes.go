@@ -8,7 +8,10 @@ func RegisterRoutes(router *gin.RouterGroup, handler *Handler, authMiddleware gi
 	{
 		invoices.Use(authMiddleware)
 		{
+			invoices.GET("/:id", handler.GetInvoices)
 			invoices.POST("", handler.CreateInvoice)
+
+			invoices.POST("/add-payment", handler.CreatePayment)
 		}
 	}
 }

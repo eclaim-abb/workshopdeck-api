@@ -63,6 +63,11 @@ func RegisterRoutes(router *gin.RouterGroup, handler *Handler, authMiddleware gi
 				}
 			}
 
+			invoicedOrders := orders.Group("/invoiced")
+			{
+				invoicedOrders.GET("", handler.GetInvoicedOrders)
+			}
+
 			repairedOrders := orders.Group("/repaired")
 			{
 				repairedOrders.GET("", handler.GetRepairedOrders)

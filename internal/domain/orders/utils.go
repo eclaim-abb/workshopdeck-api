@@ -299,6 +299,22 @@ func AttachFullPhotoURLs(order *models.Order, baseURL string) {
 	if invoice != nil && invoice.InvoiceFileUrl != "" {
 		order.Invoice.InvoiceFileUrl = baseURL + order.Invoice.InvoiceFileUrl
 	}
+
+	if invoice != nil {
+		for i := range invoice.PaymentRecords {
+			if invoice.PaymentRecords[i].PaymentProofUrl != "" {
+				invoice.PaymentRecords[i].PaymentProofUrl = baseURL + invoice.PaymentRecords[i].PaymentProofUrl
+			}
+		}
+		// Also attach on each installment's payment records
+		for i := range invoice.InvoiceInstallments {
+			for j := range invoice.InvoiceInstallments[i].PaymentRecords {
+				if invoice.InvoiceInstallments[i].PaymentRecords[j].PaymentProofUrl != "" {
+					invoice.InvoiceInstallments[i].PaymentRecords[j].PaymentProofUrl = baseURL + invoice.InvoiceInstallments[i].PaymentRecords[j].PaymentProofUrl
+				}
+			}
+		}
+	}
 }
 
 // parseSparePartForm is a shared helper that reads the multipart "data" JSON and the "files[]" slice from a gin context.

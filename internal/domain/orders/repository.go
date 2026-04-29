@@ -14,31 +14,11 @@ type Repository struct {
 	db *gorm.DB
 }
 
+func (r *Repository) GetDB() *gorm.DB { return r.db }
+
 // NewRepository creates a new instance of Repository with the given database connection.
 func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
-}
-
-// WithTransaction executes the given function within a rollback-able database transaction
-func (r *Repository) WithTransaction(fn func(tx *gorm.DB) error) error {
-	tx := r.db.Begin()
-	if tx.Error != nil {
-		return tx.Error
-	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
-		}
-	}()
-
-	if err := fn(tx); err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	return tx.Commit().Error
 }
 
 // GetOrders retrieves all orders and their details.
@@ -324,7 +304,9 @@ func (r *Repository) GetOrderPanelsGroupFromWorkOrderNo(id, woGroup uint) ([]mod
 func (r *Repository) GetOrderPanelsGroupFromWorkOrderNoTx(tx *gorm.DB, id, woGroup uint) ([]models.OrderPanel, error) {
 	var orderPanels []models.OrderPanel
 
-	err := tx.Where("work_order_no = ? AND is_locked = 0 AND work_order_group_number = ?", id, woGroup).Find(&orderPanels).Error
+	err := tx.
+		Where("work_order_no = ? AND is_locked = 0 AND work_order_group_number = ?", id, woGroup).
+		Find(&orderPanels).Error
 
 	return orderPanels, err
 }
@@ -333,8 +315,9 @@ func (r *Repository) GetOrderPanelsGroupFromWorkOrderNoTx(tx *gorm.DB, id, woGro
 func (r *Repository) GetOrderPanelsBeforeGroup(workOrderNo uint, beforeGroup uint) ([]models.OrderPanel, error) {
 	var orderPanels []models.OrderPanel
 
-	err := r.db.Where("work_order_no = ? AND is_locked = 0 AND work_order_group_number < ?",
-		workOrderNo, beforeGroup).Find(&orderPanels).Error
+	err := r.db.
+		Where("work_order_no = ? AND is_locked = 0 AND work_order_group_number < ?", workOrderNo, beforeGroup).
+		Find(&orderPanels).Error
 
 	return orderPanels, err
 }

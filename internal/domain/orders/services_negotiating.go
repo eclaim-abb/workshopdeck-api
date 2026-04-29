@@ -2,6 +2,7 @@ package orders
 
 import (
 	"eclaim-workshop-deck-api/internal/models"
+	"eclaim-workshop-deck-api/pkg/utils"
 	"errors"
 	"fmt"
 	"time"
@@ -33,7 +34,7 @@ func (s *Service) CancelNegotiation(req CancelNegotiationRequest) (*models.Order
 	}
 
 	addWONo := workOrder.AdditionalWorkOrderCount
-	err = s.repo.WithTransaction(func(tx *gorm.DB) error {
+	err = utils.WithTransaction(s.repo, func(tx *gorm.DB) error {
 		switch order.Status {
 		case "negotiating":
 			// Workshop cancels their negotiation proposal
@@ -217,7 +218,7 @@ func (s *Service) ForwardAdditionalProposal(req ApproveAdditionalProposalRequest
 		return nil, errors.New("no additional panels found in current group")
 	}
 
-	err = s.repo.WithTransaction(func(tx *gorm.DB) error {
+	err = utils.WithTransaction(s.repo, func(tx *gorm.DB) error {
 		for _, op := range oldPanels {
 			_, err := s.acceptOrderPanelTx(tx, op.OrderPanelNo, req.LastModifiedBy)
 

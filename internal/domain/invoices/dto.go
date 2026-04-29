@@ -22,3 +22,11 @@ type CreateInvoiceRequest struct {
 	Installments       []InstallmentDTO `json:"installments"` // empty = single payment
 	CreatedBy          uint             `json:"created_by" binding:"required"`
 }
+
+type AddPaymentRequest struct {
+	InvoiceNo     uint  `json:"invoice_no" binding:"required"`
+	InstallmentNo *uint `json:"installment_no"`
+	IsFullPayment bool  `json:"is_full_payment" binding:"required"`
+	PaymentAmount uint  `json:"payment_amount" binding:"required"`
+	CreatedBy     uint  `json:"created_by" binding:"required"`
+}

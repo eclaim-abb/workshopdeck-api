@@ -80,7 +80,7 @@ func (s *EmailService) SendCreatedUser(toEmail, username, email, newPassword str
 		Username: username,
 		Email:    email,
 		Password: newPassword,
-		Year:     time.Now().Year(),
+		Year:     time.Now().Local().Year(),
 	}
 
 	var body bytes.Buffer

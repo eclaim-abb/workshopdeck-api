@@ -2,8 +2,8 @@ package orders
 
 import (
 	"eclaim-workshop-deck-api/internal/domain/email"
-	"eclaim-workshop-deck-api/internal/domain/invoices"
 	"eclaim-workshop-deck-api/internal/models"
+	"eclaim-workshop-deck-api/pkg/utils"
 	"errors"
 	"fmt"
 	"mime/multipart"
@@ -41,7 +41,7 @@ func (s *Service) SetRepairedAsUnfinished(req CancelNegotiationRequest) (*models
 
 	orderPanels := workOrder.OrderPanels
 
-	err = s.repo.WithTransaction(func(tx *gorm.DB) error {
+	err = utils.WithTransaction(s.repo, func(tx *gorm.DB) error {
 		for _, oP := range orderPanels {
 			repairHistory := &models.RepairHistory{
 				OrderPanelNo: oP.OrderPanelNo,
@@ -94,7 +94,7 @@ func (s *Service) RemindPickup(req RemindPickupRequest) ([]models.PickupReminder
 
 	firstOrderNo := req.OrderNos[0]
 	var pickupReminders []models.PickupReminder
-	err := s.repo.WithTransaction(func(tx *gorm.DB) error {
+	err := utils.WithTransaction(s.repo, func(tx *gorm.DB) error {
 		for _, o := range req.OrderNos {
 			remindDelivery := &models.PickupReminder{
 				OrderNo:                 o,
@@ -151,7 +151,6 @@ func (s *Service) SetAsDelivered(
 		return nil, errors.New("invoice_nos is required")
 	}
 
-	invoiceService := invoices.NewRepository(s.repo.db)
 	allowedTypes := map[string]bool{
 		"image/jpeg": true,
 		"image/jpg":  true,
@@ -226,7 +225,7 @@ func (s *Service) SetAsDelivered(
 
 	var delivery *models.Delivery
 
-	err = s.repo.WithTransaction(func(tx *gorm.DB) error {
+	err = utils.WithTransaction(s.repo, func(tx *gorm.DB) error {
 		// 1. Create the single Delivery record
 		newDelivery := &models.Delivery{
 			ClientNo:         clientNo,
@@ -243,7 +242,7 @@ func (s *Service) SetAsDelivered(
 
 		// 2. For each invoice: link it to the delivery, update its orders
 		for _, invoiceNo := range req.InvoiceNos {
-			invoice, err := s.repo.FindInvoiceById(invoiceNo)
+			invoice, err := s.repo.FindInvoiceByIdTx(tx, invoiceNo)
 			if err != nil {
 				return fmt.Errorf("failed to find invoice %d: %w", invoiceNo, err)
 			}
@@ -253,11 +252,11 @@ func (s *Service) SetAsDelivered(
 
 			invoice.DeliveryNo = &newDelivery.DeliveryNo
 			invoice.LastModifiedBy = &req.LastModifiedBy
-			if err := invoiceService.UpdateInvoiceTx(tx, invoice); err != nil {
+			if err := s.repo.UpdateInvoiceTx(tx, invoice); err != nil {
 				return fmt.Errorf("failed to link invoice %d to delivery: %w", invoiceNo, err)
 			}
 
-			orders, err := s.repo.FindOrdersFromInvoiceNo(invoiceNo)
+			orders, err := s.repo.FindOrdersFromInvoiceNoTx(tx, invoiceNo)
 			if err != nil {
 				return fmt.Errorf("failed to find orders for invoice %d: %w", invoiceNo, err)
 			}

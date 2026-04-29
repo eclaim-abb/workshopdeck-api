@@ -2,6 +2,7 @@ package orders
 
 import (
 	"eclaim-workshop-deck-api/internal/models"
+	"eclaim-workshop-deck-api/pkg/utils"
 	"errors"
 	"fmt"
 	"mime/multipart"
@@ -186,7 +187,7 @@ func (s *Service) UpdateOrderPanelRepairStatus(
 		}
 	}
 
-	if err = s.repo.WithTransaction(func(tx *gorm.DB) error {
+	if err = utils.WithTransaction(s.repo, func(tx *gorm.DB) error {
 		repairHistory := &models.RepairHistory{
 			OrderPanelNo: req.OrderPanelNo,
 			Status:       req.RepairStatus,
@@ -342,7 +343,7 @@ func (s *Service) CompleteRepairs(
 			continue
 		}
 
-		err = s.repo.WithTransaction(func(tx *gorm.DB) error {
+		err = utils.WithTransaction(s.repo, func(tx *gorm.DB) error {
 			note := ""
 			if req.CompletionNotes != nil {
 				note = *req.CompletionNotes
@@ -530,7 +531,7 @@ func (s *Service) RequestSparePart(
 	}
 
 	// ---- Persist ----
-	if err := s.repo.WithTransaction(func(tx *gorm.DB) error {
+	if err := utils.WithTransaction(s.repo, func(tx *gorm.DB) error {
 		for _, p := range r.Panels {
 			if p.OrderPanelNo == 0 {
 				return errors.New("order_panel_no is required for every panel in requests")
@@ -733,7 +734,7 @@ func (s *Service) OrderSparePart(
 	}
 
 	// ---- Persist ----
-	if err := s.repo.WithTransaction(func(tx *gorm.DB) error {
+	if err := utils.WithTransaction(s.repo, func(tx *gorm.DB) error {
 		for i, o := range req.Orders {
 			repairHistory := &models.RepairHistory{
 				OrderPanelNo: o.OrderPanelNo,

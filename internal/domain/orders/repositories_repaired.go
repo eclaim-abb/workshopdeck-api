@@ -25,10 +25,11 @@ func (r *Repository) GetRepairedOrders(id uint) ([]models.Order, error) {
 		Preload("WorkOrders.OrderPanels.FinalMeasurement").
 		Preload("Invoice").
 		Preload("Invoice.Client").
+		Preload("Invoice.Client.City").
 		Preload("Invoice.PaymentRecords").
 		Preload("Invoice.InvoiceInstallments").
 		Preload("Invoice.InvoiceInstallments.PaymentRecords").
-		Preload("Invoice.Client.City").
+		Preload("Invoice.CreatedByUser").
 		Preload("Client").
 		Preload("Client.City").
 		Preload("PickupReminders").
@@ -54,6 +55,31 @@ func (r *Repository) FindInvoiceById(invoiceNo uint) (*models.Invoice, error) {
 		return nil, nil
 	}
 	return &invoice, err
+}
+
+// FindInvoiceByIdTx finds an invoice within a transaction
+func (r *Repository) FindInvoiceByIdTx(tx *gorm.DB, invoiceNo uint) (*models.Invoice, error) {
+	var invoice models.Invoice
+	err := tx.Where("invoice_no = ? AND is_locked = ?", invoiceNo, false).First(&invoice).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &invoice, err
+}
+
+// UpdateInvoiceTx updates an invoice within a transaction
+func (r *Repository) UpdateInvoiceTx(tx *gorm.DB, invoice *models.Invoice) error {
+	return tx.Save(invoice).Error
+}
+
+// FindOrdersFromInvoiceNoTx finds orders for an invoice within a transaction
+func (r *Repository) FindOrdersFromInvoiceNoTx(tx *gorm.DB, invoiceNo uint) ([]models.Order, error) {
+	var orders []models.Order
+	err := tx.Where("invoice_no = ? AND is_locked = 0", invoiceNo).Find(&orders).Error
+	if err != nil {
+		return nil, err
+	}
+	return orders, nil
 }
 
 // GenerateDeliveryId generates the next DEL/YYYY/MM/XXXXXX reference number.

@@ -2,6 +2,7 @@ package orders
 
 import (
 	"eclaim-workshop-deck-api/internal/models"
+	"eclaim-workshop-deck-api/pkg/utils"
 	"errors"
 	"fmt"
 	"mime/multipart"
@@ -80,7 +81,7 @@ func (s *Service) SubmitNegotiation(
 
 	negotiationsCreated := make([]NegotiationCreatedInfo, 0)
 
-	err = s.repo.WithTransaction(func(tx *gorm.DB) error {
+	err = utils.WithTransaction(s.repo, func(tx *gorm.DB) error {
 		for _, panelReq := range req.OrderPanels {
 			orderPanel, err := s.repo.GetOrderPanelWithLock(tx, panelReq.OrderPanelNo)
 			if err != nil {
@@ -256,7 +257,7 @@ func (s *Service) AcceptOrder(id uint, req AcceptDeclineOrder) (*models.Order, e
 	workOrder := order.WorkOrders[0]
 	groupNo := workOrder.AdditionalWorkOrderCount
 
-	err = s.repo.WithTransaction(func(tx *gorm.DB) error {
+	err = utils.WithTransaction(s.repo, func(tx *gorm.DB) error {
 		// Get panels in current group
 		var orderPanels []models.OrderPanel
 		for _, op := range workOrder.OrderPanels {
@@ -333,7 +334,7 @@ func (s *Service) DeclineOrder(id uint, req AcceptDeclineOrder) (*models.Order, 
 	workOrder := order.WorkOrders[0]
 	groupNo := workOrder.AdditionalWorkOrderCount
 
-	err = s.repo.WithTransaction(func(tx *gorm.DB) error {
+	err = utils.WithTransaction(s.repo, func(tx *gorm.DB) error {
 		// Get panels in current group
 		var orderPanels []models.OrderPanel
 		for _, op := range workOrder.OrderPanels {

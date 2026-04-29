@@ -40,3 +40,8 @@ func (r *Repository) GetLastInvoiceSequenceForMonth(year int, month int) (int, e
 	}
 	return seq, nil
 }
+
+// AttachFullPhotoURLs modifies the returned order by attaching the base URL to the file paths
+func AttachFullPhotoURLs(paymentRecord *models.PaymentRecord, baseURL string) {
+	paymentRecord.PaymentProofUrl = baseURL + paymentRecord.PaymentProofUrl
+}

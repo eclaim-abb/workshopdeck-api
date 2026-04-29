@@ -4,8 +4,8 @@ import "time"
 
 type PaymentRecord struct {
 	PaymentRecordNo uint      `gorm:"type:int(11);primaryKey;not null;autoIncrement" json:"payment_record_no"`
-	InvoiceNo       *uint     `gorm:"type:int(11);not null" json:"invoice_no"`
-	InstallmentNo   uint      `gorm:"type:int(11);null" json:"installment_no"`
+	InvoiceNo       uint      `gorm:"type:int(11);not null" json:"invoice_no"`
+	InstallmentNo   *uint     `gorm:"type:int(11);null" json:"installment_no"`
 	PaidAmount      uint      `gorm:"type:int(11);not null" json:"paid_amount"`
 	PaidDate        time.Time `gorm:"default:CURRENT_TIMESTAMP;not null;type:datetime" json:"paid_date"`
 	PaymentProofUrl string    `gorm:"type:varchar(255);not null" json:"payment_proof_url"`
