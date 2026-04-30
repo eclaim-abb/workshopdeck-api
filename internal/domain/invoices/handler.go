@@ -55,7 +55,7 @@ func (h *Handler) CreateInvoice(c *gin.Context) {
 		return h.storage.Upload(file, header, folder)
 	}
 
-	// ── 1. Parse the JSON payload field ───────────────────────────────────────
+	// ── 1. Parse the JSON payload field
 	rawPayload := c.PostForm("payload")
 	if rawPayload == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -72,7 +72,7 @@ func (h *Handler) CreateInvoice(c *gin.Context) {
 		return
 	}
 
-	// ── 2. Extract the optional file ──────────────────────────────────────────
+	// ── 2. Extract the optional file ───
 	var fileHeader *multipart.FileHeader
 	if !req.IsSystemGenerated {
 		fh, err := c.FormFile("invoice_file")
@@ -83,7 +83,7 @@ func (h *Handler) CreateInvoice(c *gin.Context) {
 		fileHeader = fh
 	}
 
-	// ── 3. Delegate to service ────────────────────────────────────────────────
+	// ── 3. Delegate to service ─────────
 	invoice, err := h.service.CreateInvoice(req, fileHeader, uploadFn)
 	if err != nil {
 		h.log.Error("CreateInvoice: service error", zap.Error(err))
@@ -104,7 +104,7 @@ func (h *Handler) CreatePayment(c *gin.Context) {
 		return h.storage.Upload(file, header, folder)
 	}
 
-	// ── 1. Parse the JSON payload field ───────────────────────────────────────
+	// ── 1. Parse the JSON payload field
 	rawPayload := c.PostForm("payload")
 	if rawPayload == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -122,7 +122,7 @@ func (h *Handler) CreatePayment(c *gin.Context) {
 		return
 	}
 
-	// ── 2. Extract the proof file ──────────────────────────────────────────
+	// ── 2. Extract the proof file ───
 	var fileHeader *multipart.FileHeader
 	fh, err := c.FormFile("payment_file")
 	if err != nil {
@@ -132,7 +132,7 @@ func (h *Handler) CreatePayment(c *gin.Context) {
 	}
 	fileHeader = fh
 
-	// ── 3. Delegate to service ────────────────────────────────────────────────
+	// ── 3. Delegate to service ─────────
 	paymentRecord, err := h.service.CreatePayment(req, fileHeader, uploadFn)
 	if err != nil {
 		h.log.Error("CreatePayment: service error", zap.Error(err))
